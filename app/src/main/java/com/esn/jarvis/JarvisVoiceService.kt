@@ -6,7 +6,9 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -28,6 +30,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         private const val WAKE = "jarvis"
         private const val DEFAULT_RATE = 0.82f
         private const val DEFAULT_PITCH = 0.72f
+        private const val AUDIO_DUCK_FACTOR = 0.25f
     }
 
     private var recognizer: SpeechRecognizer? = null
@@ -37,9 +40,11 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var commandMode = false
     private var restarting = false
     private var waitingForSpeechToFinish = false
+    private var audioManager: AudioManager? = null
 
     override fun onCreate() {
         super.onCreate()
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         fallbackTts = TextToSpeech(this, this)
         createChannel()
     }
@@ -77,18 +82,16 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         recognizer?.destroy()
         recognizer = SpeechRecognizer.createSpeechRecognizer(this)
         recognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: android.os.Bundle?) { restarting = false }
+            override fun onReadyForSpeech(params: Bundle?) { restarting = false }
             override fun onBeginningOfSpeech() = Unit
             override fun onRmsChanged(rmsdB: Float) = Unit
             override fun onBufferReceived(buffer: ByteArray?) = Unit
-            override fun onEndOfSpeech() {
-                // Do not restart here. Android can deliver onResults immediately after onEndOfSpeech.
-            }
+            override fun onEndOfSpeech() = Unit
             override fun onError(error: Int) {
                 restarting = false
                 if (active && !waitingForSpeechToFinish) restartRecognition()
             }
-            override fun onResults(results: android.os.Bundle?) {
+            override fun onResults(results: Bundle?) {
                 restarting = false
                 val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty().trim()
                 if (spoken.isBlank()) {
@@ -96,12 +99,10 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                     return
                 }
                 handleSpeech(spoken)
-                // If handleSpeech produced speech, its utterance listener will restart recognition.
-                // Otherwise restart now so the wake-word listener remains active.
                 if (!isSpeaking() && !waitingForSpeechToFinish) restartRecognition()
             }
-            override fun onPartialResults(partialResults: android.os.Bundle?) = Unit
-            override fun onEvent(eventType: Int, params: android.os.Bundle?) = Unit
+            override fun onPartialResults(partialResults: Bundle?) = Unit
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
         })
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -168,6 +169,9 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         val rate = prefs.getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.5f, 1.5f)
         fallbackTts?.setPitch(DEFAULT_PITCH)
         fallbackTts?.setSpeechRate(rate)
+        // Prevent the speech recognizer's audio cue from becoming prominent over JARVIS.
+        // Android does not expose a universal API to disable recognizer tones, so we avoid
+        // changing global notification/ringer settings and instead keep JARVIS audio focused.
         fallbackTts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis_${System.currentTimeMillis()}")
     }
 
