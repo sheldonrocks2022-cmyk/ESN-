@@ -126,7 +126,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun execute(command: String) {
-        val result = JarvisCommandEngine.execute(this, command)
+        val result = JarvisCommandEngine(this, command)
         speak(result)
     }
 
@@ -138,8 +138,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun polishForVoice(text: String): String {
         var result = text.trim()
-
-        // Give common command responses a more natural cinematic-assistant cadence.
         result = result
             .replace("JARVIS online.", "JARVIS online.")
             .replace("I couldn't", "I'm afraid I couldn't")
@@ -159,13 +157,11 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             .replace("Phone Access is not enabled", "I'm afraid Phone Access is not enabled")
             .replace("Review it and tap Send", "Please review the message, then tap Send")
 
-        // Add a short conversational lead-in for terse system responses.
         if (result.equals("Okay.", ignoreCase = true)) {
             result = "Very good."
         } else if (result.equals("Done", ignoreCase = true)) {
             result = "Very good. Done."
         }
-
         return result
     }
 
@@ -193,12 +189,9 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             } else {
                 ttsReady = true
             }
-
             if (ttsReady) {
-                // Cinematic assistant profile: measured pace, slightly lower pitch, British English when available.
                 tts?.setPitch(0.84f)
                 tts?.setSpeechRate(0.88f)
-                tts?.setQueueMode(TextToSpeech.QUEUE_FLUSH)
                 if (active) speak("Voice systems are ready.")
             }
         }
