@@ -181,8 +181,15 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 fallback != TextToSpeech.LANG_MISSING_DATA && fallback != TextToSpeech.LANG_NOT_SUPPORTED
             } else true
             if (ttsReady) {
-                tts?.setPitch(0.84f)
-                tts?.setSpeechRate(0.88f)
+                tts?.setPitch(0.72f)
+                tts?.setSpeechRate(0.82f)
+                tts?.setVoice(
+                    tts?.voices?.firstOrNull { voice ->
+                        voice.locale.language == "en" &&
+                        voice.locale.country == "GB" &&
+                        !voice.isNetworkConnectionRequired
+                    }
+                )
                 if (active) speak("Voice systems are ready.")
             }
         }
