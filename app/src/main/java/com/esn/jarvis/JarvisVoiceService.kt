@@ -107,7 +107,9 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun startRecognition() {
-        if (!active || waitingForSpeechToFinish || recognitionStarting || !fallbackTtsReady || !SpeechRecognizer.isRecognitionAvailable(this)) return
+        // Speech recognition must not depend on TTS initialization. If TTS fails or is
+        // still loading, JARVIS must still be able to hear commands and execute them.
+        if (!active || waitingForSpeechToFinish || recognitionStarting || !SpeechRecognizer.isRecognitionAvailable(this)) return
         val now = System.currentTimeMillis()
         if (now - lastRecognitionStart < 900L) return
         lastRecognitionStart = now
@@ -131,11 +133,11 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 recognitionFailures = (recognitionFailures + 1).coerceAtMost(8)
                 val delay = when (error) {
                     SpeechRecognizer.ERROR_NO_MATCH,
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 2500L
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 1800L
                     SpeechRecognizer.ERROR_NETWORK,
                     SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
-                    SpeechRecognizer.ERROR_SERVER -> 4000L
-                    else -> (2200L + recognitionFailures * 500L).coerceAtMost(6000L)
+                    SpeechRecognizer.ERROR_SERVER -> 3000L
+                    else -> (1800L + recognitionFailures * 400L).coerceAtMost(5000L)
                 }
                 scheduleRecognition(delay)
             }
@@ -144,7 +146,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 recognitionFailures = 0
                 val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
                 if (spoken.isBlank()) {
-                    scheduleRecognition(1800L)
+                    scheduleRecognition(1200L)
                     return
                 }
                 handleSpeech(spoken)
@@ -159,15 +161,15 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, Locale.US.toLanguageTag())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 400)
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1200)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 300)
         }
         try {
             recognizer?.startListening(intent)
         } catch (_: Exception) {
             recognitionStarting = false
-            scheduleRecognition(3500L)
+            scheduleRecognition(3000L)
         }
     }
 
@@ -184,7 +186,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             .replace(Regex("\\s+"), " ")
             .trim()
         if (normalized.isBlank()) {
-            scheduleRecognition(1800L)
+            scheduleRecognition(1200L)
             return
         }
 
@@ -226,6 +228,12 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         recognizer = null
         pendingSpeech = polished
         if (fallbackTtsReady) speakFallback(polished)
+        else {
+            // TTS is unavailable/not initialized. Do not leave the command system stuck.
+            pendingSpeech = null
+            waitingForSpeechToFinish = false
+            scheduleRecognition(500L)
+        }
     }
 
     private fun speakFallback(text: String) {
@@ -283,10 +291,21 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onInit(status: Int) {
-        if (status != TextToSpeech.SUCCESS) return
+        if (status != TextToSpeech.SUCCESS) {
+            fallbackTtsReady = false
+            pendingSpeech = null
+            waitingForSpeechToFinish = false
+            if (active) scheduleRecognition(500L)
+            return
+        }
         val english = fallbackTts?.setLanguage(Locale.US)
         fallbackTtsReady = english != TextToSpeech.LANG_MISSING_DATA && english != TextToSpeech.LANG_NOT_SUPPORTED
-        if (!fallbackTtsReady) return
+        if (!fallbackTtsReady) {
+            pendingSpeech = null
+            waitingForSpeechToFinish = false
+            if (active) scheduleRecognition(500L)
+            return
+        }
 
         val voices = fallbackTts?.voices.orEmpty()
         val bestVoice = voices.asSequence()
@@ -314,23 +333,20 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             override fun onDone(utteranceId: String?) {
                 handler.post {
                     waitingForSpeechToFinish = false
-                    if (active) scheduleRecognition(700L)
+                    if (active) scheduleRecognition(500L)
                 }
             }
             override fun onError(utteranceId: String?) {
                 handler.post {
                     waitingForSpeechToFinish = false
-                    if (active) scheduleRecognition(1500L)
+                    if (active) scheduleRecognition(1000L)
                 }
             }
         })
 
         val pending = pendingSpeech
         if (active && !pending.isNullOrBlank()) speakFallback(pending)
-        else if (active) {
-            waitingForSpeechToFinish = false
-            scheduleRecognition(700L)
-        }
+        else if (active && !waitingForSpeechToFinish) scheduleRecognition(500L)
     }
 
     override fun onDestroy() {
