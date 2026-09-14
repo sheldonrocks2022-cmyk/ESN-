@@ -28,8 +28,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         private const val ACTIVE = "active"
         private const val CODE_101 = "code 101"
         private const val WAKE = "jarvis"
-        private const val DEFAULT_RATE = 0.78f
-        private const val DEFAULT_PITCH = 0.84f
+        private const val DEFAULT_RATE = 0.72f
+        private const val DEFAULT_PITCH = 0.76f
     }
 
     private var recognizer: SpeechRecognizer? = null
@@ -59,7 +59,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         commandMode = false
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, true).apply()
         startForeground(NOTIFICATION_ID, notification("Active — say JARVIS"))
-        speak("Good evening. JARVIS is online. How may I assist you?")
+        speak("JARVIS online. How may I assist you?")
     }
 
     private fun deactivate() {
