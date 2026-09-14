@@ -23,12 +23,21 @@ android {
         }
     }
 
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+
+    val fishApiKey = providers.gradleProperty("FISH_API_KEY").orElse(System.getenv("FISH_API_KEY")).orElse("").get()
+    defaultConfig {
+        buildConfigField("String", "FISH_AUDIO_API_KEY", "\"${fishApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
 }
 
 dependencies {
