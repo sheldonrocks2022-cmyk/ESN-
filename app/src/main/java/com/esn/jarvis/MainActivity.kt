@@ -4,85 +4,141 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.util.Locale
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var listening by mutableStateOf(false)
-    private val speechPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    private var transcript by mutableStateOf("")
+    private var response by mutableStateOf("Systems ready. Awaiting your command.")
+    private val history = mutableStateListOf<String>()
+    private lateinit var speech: SpeechRecognizer
+    private lateinit var tts: TextToSpeech
+    private val speechPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) response = "Microphone permission is required for voice commands."
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        tts = TextToSpeech(this, this)
+        if (SpeechRecognizer.isRecognitionAvailable(this)) speech = SpeechRecognizer.createSpeechRecognizer(this)
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             speechPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
-        setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF061426)) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text("JARVIS", color = Color(0xFF7DEFF2), fontSize = 42.sp)
-                        Text("ESN Mobile Assistant", color = Color.White, fontSize = 16.sp)
-                        Spacer(Modifier.height(32.dp))
-                        Surface(
-                            modifier = Modifier.size(190.dp),
-                            shape = MaterialTheme.shapes.extraLarge,
-                            color = if (listening) Color(0xFF168CFF) else Color(0xFF0A2038)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                Text(if (listening) "LISTENING" else "STANDBY", color = Color.White, fontSize = 20.sp)
-                                Spacer(Modifier.height(8.dp))
-                                Text("●", color = Color(0xFF42E8F4), fontSize = 48.sp)
-                            }
+        setContent { JarvisScreen() }
+    }
+
+    @Composable
+    private fun JarvisScreen() {
+        MaterialTheme {
+            Surface(Modifier.fillMaxSize(), color = Color(0xFF061426)) {
+                Column(Modifier.fillMaxSize().padding(20.dp)) {
+                    Text("JARVIS", color = Color(0xFF7DEFF2), fontSize = 38.sp)
+                    Text("ESN MOBILE ASSISTANT", color = Color.White, fontSize = 13.sp)
+                    Spacer(Modifier.height(20.dp))
+                    Surface(Modifier.fillMaxWidth(), color = Color(0xFF0A2038), shape = MaterialTheme.shapes.large) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text(if (listening) "LISTENING..." else "STANDBY", color = Color(0xFF42E8F4), fontSize = 18.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Text(transcript.ifBlank { response }, color = Color.White, fontSize = 16.sp)
                         }
-                        Spacer(Modifier.height(28.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(modifier = Modifier.weight(1f), onClick = { listening = !listening }) {
-                                Text(if (listening) "Stop" else "Talk")
-                            }
-                            TextButton(modifier = Modifier.weight(1f), onClick = {
-                                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                            }) {
-                                Text("Phone Access")
-                            }
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(Modifier.weight(1f), onClick = { if (listening) stopListening() else startListening() }) {
+                            Text(if (listening) "Stop" else "Talk")
                         }
-                        Spacer(Modifier.height(18.dp))
-                        Text(
-                            "Enable Phone Access to let JARVIS navigate supported Android interfaces. Sensitive actions will require confirmation.",
-                            color = Color(0xFFB8C7D9),
-                            fontSize = 13.sp
-                        )
+                        OutlinedButton(Modifier.weight(1f), onClick = {
+                            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        }) { Text("Phone Access") }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text("Try: \"open Discord\", \"open YouTube\", \"search the web for ESN\", \"volume up\", or \"go home\".", color = Color(0xFFB8C7D9), fontSize = 12.sp)
+                    Spacer(Modifier.height(18.dp))
+                    Text("COMMAND LOG", color = Color(0xFF7DEFF2), fontSize = 13.sp)
+                    LazyColumn(Modifier.fillMaxSize()) {
+                        items(history) { item -> Text(item, color = Color(0xFFD6E2F0), fontSize = 13.sp, modifier = Modifier.padding(vertical = 5.dp)) }
                     }
                 }
             }
         }
+    }
+
+    private fun startListening() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            response = "Speech recognition is unavailable on this device."
+            speak(response)
+            return
+        }
+        listening = true
+        transcript = ""
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to JARVIS")
+        }
+        speech.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) = Unit
+            override fun onBeginningOfSpeech() = Unit
+            override fun onRmsChanged(rmsdB: Float) = Unit
+            override fun onBufferReceived(buffer: ByteArray?) = Unit
+            override fun onEndOfSpeech() { listening = false }
+            override fun onError(error: Int) { listening = false; response = "I didn't catch that. Please try again." }
+            override fun onResults(results: Bundle?) {
+                listening = false
+                val command = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                if (command.isNotBlank()) runCommand(command)
+            }
+            override fun onPartialResults(partialResults: Bundle?) {
+                transcript = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+            }
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
+        })
+        speech.startListening(intent)
+    }
+
+    private fun stopListening() {
+        listening = false
+        speech.stopListening()
+    }
+
+    private fun runCommand(command: String) {
+        transcript = command
+        history.add("You: $command")
+        val result = JarvisCommandEngine.execute(this, command)
+        response = result
+        history.add("JARVIS: $result")
+        speak(result)
+    }
+
+    private fun speak(text: String) {
+        if (::tts.isInitialized) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis-response")
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) tts.language = Locale.getDefault()
+    }
+
+    override fun onDestroy() {
+        if (::speech.isInitialized) speech.destroy()
+        if (::tts.isInitialized) { tts.stop(); tts.shutdown() }
+        super.onDestroy()
     }
 }
