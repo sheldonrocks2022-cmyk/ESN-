@@ -14,19 +14,31 @@ object JarvisNaturalCommandRouter {
             text == "open notifications" || text == "show notifications" || text == "pull down notifications" -> if (JarvisAccessibilityService.notifications()) "Opening notifications." else "Phone Access is not enabled."
             text == "open quick settings" || text == "show quick settings" -> if (JarvisAccessibilityService.quickSettings()) "Opening quick settings." else "Phone Access is not enabled."
             text.contains("read my messages") || text.contains("read my texts") || text.contains("read my sms") || text.contains("read my dms") -> JarvisNotificationListenerService.readLatestMessages(context)
+            text == "read it" || text == "read that" || text == "read the latest message" -> JarvisNotificationListenerService.readLatestMessage(context)
             text.contains("any new messages") || text.contains("what did i miss") || text.contains("any new texts") || text.contains("unread messages") -> JarvisNotificationListenerService.readLatestMessages(context)
             text.contains("read my notifications") || text.contains("show me my notifications") -> JarvisNotificationListenerService.readLatestMessages(context)
             text.contains("notification access") || text.contains("let you read my notifications") || text.contains("enable notification access") -> JarvisNotificationListenerService.notificationAccessSettings(context)
+            text.startsWith("reply ") || text.startsWith("reply that ") -> prepareReply(raw)
             text == "go to settings" || text == "take me to settings" -> open(context, Settings.ACTION_SETTINGS, "Settings opened.")
             text == "go home" || text == "take me home" -> if (JarvisAccessibilityService.home()) "Going home." else "Phone Access is not enabled."
             text == "go back" || text == "take me back" -> if (JarvisAccessibilityService.back()) "Going back." else "Phone Access is not enabled."
+            text.contains("open app settings") -> open(context, Settings.ACTION_APPLICATION_SETTINGS, "App settings opened.")
             text.contains("slow down") || text.contains("speak slower") -> setSpeechRate(context, -0.08f, "Speech speed reduced.")
             text.contains("speak faster") || text.contains("speed up") -> setSpeechRate(context, 0.08f, "Speech speed increased.")
             text.contains("normal speech") || text.contains("normal speed") -> { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE).edit().putFloat("speech_rate", 0.74f).apply(); "Speech speed restored." }
             text == "good morning" || text.contains("morning briefing") -> morningBriefing(context)
             text.contains("good night") || text.contains("bedtime mode") || text.contains("going to bed") -> bedtime(context)
+            text.contains("gaming mode") -> { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE).edit().putBoolean("gaming_mode", true).apply(); "Gaming mode enabled." }
+            text.contains("work mode") -> { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE).edit().putBoolean("gaming_mode", false).apply(); "Work mode enabled." }
             else -> null
         }
+    }
+
+    private fun prepareReply(raw: String): String {
+        val reply = raw.replaceFirst(Regex("(?i)^reply( that)?\\s*"), "").trim()
+        if (reply.isBlank()) return "Tell me what you want me to reply."
+        if (!JarvisAccessibilityService.clickText("Reply") && !JarvisAccessibilityService.clickText("reply")) return "I couldn't find a Reply control. Phone Access may need to be enabled, or this app may not expose a reply action."
+        return if (JarvisAccessibilityService.typeText(reply)) "Reply drafted. Review it before sending." else "I opened Reply, but I couldn't enter the text."
     }
 
     private fun setSpeechRate(context: Context, delta: Float, response: String): String {
@@ -36,12 +48,12 @@ object JarvisNaturalCommandRouter {
         return response
     }
 
-    private fun morningBriefing(context: Context): String = "Good morning. ${JarvisNotificationListenerService.readLatestMessages(context)} ${JarvisCommandEngine.execute(context, "battery status") }"
+    private fun morningBriefing(context: Context): String = "Good morning. ${JarvisNotificationListenerService.readLatestMessages(context)} ${JarvisCommandEngine.execute(context, "battery status")}"
 
-    private fun bedtime(context: Context): String {
-        val opened = try { context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true } catch (_: Exception) { false }
-        return if (opened) "Bedtime mode ready. Sound settings opened so you can confirm your preferred sleep settings." else "I couldn't open the sound settings."
-    }
+    private fun bedtime(context: Context): String = try {
+        context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        "Bedtime mode ready. Sound settings opened for your confirmation."
+    } catch (_: Exception) { "I couldn't open the sound settings." }
 
     private fun open(context: Context, action: String, response: String): String = try {
         context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); response
