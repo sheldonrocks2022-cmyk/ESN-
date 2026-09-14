@@ -27,8 +27,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         private const val ACTIVE = "active"
         private const val CODE_101 = "code 101"
         private const val WAKE = "jarvis"
-        private const val DEFAULT_RATE = 0.82f
-        private const val DEFAULT_PITCH = 0.72f
+        private const val DEFAULT_RATE = 0.78f
+        private const val DEFAULT_PITCH = 0.84f
     }
 
     private var recognizer: SpeechRecognizer? = null
@@ -121,7 +121,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         if (spoken.isBlank()) return
         val normalized = spoken.lowercase(Locale.getDefault()).replace(Regex("[^a-z0-9 ]"), "").trim()
         if (normalized.contains(CODE_101)) {
-            speak("Code 101 acknowledged. I shall stand down.")
+            speak("Code 101 acknowledged. Standing down.")
             android.os.Handler(mainLooper).postDelayed({ deactivate() }, 1400)
             return
         }
@@ -129,7 +129,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             if (normalized == WAKE || normalized.startsWith("$WAKE ") || normalized.startsWith("hey $WAKE ")) {
                 commandMode = true
                 val command = normalized.removePrefix("hey ").removePrefix(WAKE).trim()
-                if (command.isNotBlank()) execute(command) else speak("Yes, sir?")
+                if (command.isNotBlank()) execute(command) else speak("Yes?")
             }
             return
         }
@@ -157,7 +157,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         if (!fallbackTtsReady || !active) return
         pendingSpeech = null
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        val rate = prefs.getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.5f, 1.5f)
+        val rate = prefs.getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.55f, 1.25f)
         fallbackTts?.setPitch(DEFAULT_PITCH)
         fallbackTts?.setSpeechRate(rate)
         fallbackTts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis_${System.currentTimeMillis()}")
@@ -167,24 +167,23 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun polishForVoice(text: String): String {
         var result = text.trim()
+        // Keep command responses direct. The old version added repeated filler such as
+        // "Certainly" and "Very good", which made the voice sound artificial and annoying.
         result = result
-            .replace("I couldn't", "I'm afraid I couldn't")
-            .replace("I can't", "I'm afraid I can't")
-            .replace("I can’t", "I'm afraid I can't")
-            .replace("Opening ", "Certainly. Opening ")
-            .replace("Launching ", "Certainly. Launching ")
-            .replace("Searching for ", "Certainly. Searching for ")
-            .replace("Done.", "Very good. Done.")
-            .replace("Cancelled.", "Very well. Cancelled.")
-            .replace("Canceling.", "Very well. Canceling.")
-            .replace("Settings opened.", "Certainly. I've opened Settings.")
-            .replace("Not available", "I'm afraid that isn't available")
-            .replace("not available", "I'm afraid that isn't available")
-            .replace("Phone Access isn't enabled", "I'm afraid Phone Access is not enabled")
-            .replace("Phone Access is not enabled", "I'm afraid Phone Access is not enabled")
-            .replace("Review it and tap Send", "Please review the message, then tap Send")
-        if (result.equals("Okay.", ignoreCase = true)) result = "Very good."
-        else if (result.equals("Done", ignoreCase = true)) result = "Very good. Done."
+            .replace("I'm afraid I couldn't", "I couldn't")
+            .replace("I'm afraid I can't", "I can't")
+            .replace("Certainly. Opening ", "Opening ")
+            .replace("Certainly. Launching ", "Launching ")
+            .replace("Certainly. Searching for ", "Searching for ")
+            .replace("Very good. Done.", "Done.")
+            .replace("Very well. Cancelled.", "Cancelled.")
+            .replace("Very well. Canceling.", "Canceling.")
+            .replace("Certainly. I've opened Settings.", "Settings opened.")
+            .replace("I'm afraid that isn't available", "That isn't available")
+            .replace("I'm afraid Phone Access is not enabled", "Phone Access is not enabled")
+            .replace("Please review the message, then tap Send", "Review the message, then tap Send")
+        if (result.equals("Okay.", ignoreCase = true)) result = "Okay."
+        else if (result.equals("Done", ignoreCase = true)) result = "Done."
         return result
     }
 
@@ -206,9 +205,22 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         val british = fallbackTts?.setLanguage(Locale.UK)
         fallbackTtsReady = british != TextToSpeech.LANG_MISSING_DATA && british != TextToSpeech.LANG_NOT_SUPPORTED
         if (!fallbackTtsReady) return
+
+        // Prefer an installed local British English voice. If the device has several,
+        // choose the highest-quality voice available rather than a generic default.
+        val bestVoice = fallbackTts?.voices
+            ?.asSequence()
+            ?.filter { voice ->
+                voice.locale.language == "en" &&
+                (voice.locale.country == "GB" || voice.locale.country == "AU" || voice.locale.country == "IE") &&
+                !voice.isNetworkConnectionRequired
+            }
+            ?.sortedWith(compareByDescending<TextToSpeech.Voice> { it.quality }.thenBy { it.locale.country != "GB" })
+            ?.firstOrNull()
+        if (bestVoice != null) fallbackTts?.setVoice(bestVoice)
+
         fallbackTts?.setPitch(DEFAULT_PITCH)
-        fallbackTts?.setSpeechRate(getSharedPreferences(PREFS, MODE_PRIVATE).getFloat("speech_rate", DEFAULT_RATE))
-        fallbackTts?.voices?.firstOrNull { voice -> voice.locale.language == "en" && voice.locale.country == "GB" && !voice.isNetworkConnectionRequired }?.let { fallbackTts?.setVoice(it) }
+        fallbackTts?.setSpeechRate(getSharedPreferences(PREFS, MODE_PRIVATE).getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.55f, 1.25f))
         fallbackTts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) = Unit
             override fun onDone(utteranceId: String?) { android.os.Handler(mainLooper).post { waitingForSpeechToFinish = false; if (active) startRecognition() } }
