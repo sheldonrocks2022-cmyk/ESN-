@@ -14,18 +14,19 @@ object JarvisCommandEngine {
             command.contains("open discord") -> { launchPackage(context, "com.discord"); "Opening Discord." }
             command.contains("open youtube") -> { launchPackage(context, "com.google.android.youtube"); "Opening YouTube." }
             command.startsWith("search youtube for ") -> { val q = raw.substringAfter("search youtube for ").trim(); openUrl(context, "https://www.youtube.com/results?search_query=${Uri.encode(q)}"); "Searching YouTube for $q." }
-            command.startsWith("search the web for ") || command.startsWith("search for ") -> { val q = raw.substringAfter("for ").trim(); openUrl(context, "https://www.google.com/search?q=${Uri.encode(q)}"); "Searching the web for $q." }
+            command.startsWith("search the web for ") -> { val q = raw.substringAfter("search the web for ").trim(); openUrl(context, "https://www.google.com/search?q=${Uri.encode(q)}"); "Searching the web for $q." }
+            command.startsWith("search for ") -> { val q = raw.substringAfter("search for ").trim(); openUrl(context, "https://www.google.com/search?q=${Uri.encode(q)}"); "Searching the web for $q." }
             command.contains("volume up") || command.contains("turn the volume up") -> { audio(context).adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI); "Volume increased." }
             command.contains("volume down") || command.contains("turn the volume down") -> { audio(context).adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI); "Volume decreased." }
-            command.contains("go back") || command == "back" -> if (JarvisAccessibilityService.back()) "Going back." else "Phone access is not enabled."
-            command.contains("go home") || command == "home" -> if (JarvisAccessibilityService.home()) "Going home." else "Phone access is not enabled."
-            command.contains("show recent apps") || command == "recents" -> if (JarvisAccessibilityService.recents()) "Showing recent apps." else "Phone access is not enabled."
-            command == "scroll down" -> if (JarvisAccessibilityService.scrollForward()) "Scrolling down." else "I couldn't scroll the current screen."
-            command == "scroll up" -> if (JarvisAccessibilityService.scrollBackward()) "Scrolling up." else "I couldn't scroll the current screen."
-            command.startsWith("click ") -> { val target = raw.substringAfter("click ").trim(); if (JarvisAccessibilityService.clickText(target)) "Clicked $target." else "I couldn't find a clickable $target on the current screen." }
-            command.startsWith("type ") -> { val text = raw.substringAfter("type ").trim(); if (JarvisAccessibilityService.typeText(text)) "Text entered." else "I couldn't find an editable field on the current screen." }
             command.contains("open settings") -> { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); "Opening settings." }
-            else -> "I can hear you, but I don't have an action for that yet."
+            command.contains("go back") || command == "back" -> if (JarvisAccessibilityService.back()) "Going back." else "Phone Access isn't enabled, so I can't control the screen yet."
+            command.contains("go home") || command == "home" -> if (JarvisAccessibilityService.home()) "Going home." else "Phone Access isn't enabled, so I can't control the screen yet."
+            command.contains("show recent apps") || command == "recents" -> if (JarvisAccessibilityService.recents()) "Showing recent apps." else "Phone Access isn't enabled, so I can't control the screen yet."
+            command == "scroll down" -> if (JarvisAccessibilityService.scrollForward()) "Scrolling down." else "I can't control scrolling without Phone Access."
+            command == "scroll up" -> if (JarvisAccessibilityService.scrollBackward()) "Scrolling up." else "I can't control scrolling without Phone Access."
+            command.startsWith("click ") -> { val target = raw.substringAfter("click ").trim(); if (JarvisAccessibilityService.clickText(target)) "Clicked $target." else "I can't click that without Phone Access enabled." }
+            command.startsWith("type ") -> { val text = raw.substringAfter("type ").trim(); if (JarvisAccessibilityService.typeText(text)) "Text entered." else "I can't type into the screen without Phone Access enabled." }
+            else -> "I heard you, but I don't have that command yet. Try open Discord, open YouTube, search the web for something, or volume up."
         }
     }
 
