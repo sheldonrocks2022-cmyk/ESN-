@@ -34,3 +34,5 @@ jobs:
           name: jarvis-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+# Fresh rebuild trigger: 2026-09-14
