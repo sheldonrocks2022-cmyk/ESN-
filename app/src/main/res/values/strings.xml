@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">JARVIS</string>
+    <string name="accessibility_description">Allows JARVIS to navigate and interact with supported Android interfaces when you explicitly enable the service.</string>
+</resources>
