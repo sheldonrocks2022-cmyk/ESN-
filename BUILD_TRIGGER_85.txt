@@ -1,0 +1,5 @@
+Fresh JARVIS APK rebuild trigger.
+
+This build must use the current main branch, including the latest voice-recognition startup fix from commit 8128b9e6ec7eea806e1544da12fd63d78558c0d4.
+
+Build assembleDebug and publish the resulting APK as the next GitHub Release.
