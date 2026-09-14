@@ -36,6 +36,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var active = false
     private var commandMode = false
     private var restarting = false
+    private var waitingForSpeechToFinish = false
 
     override fun onCreate() {
         super.onCreate()
@@ -50,6 +51,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun activate() {
         active = true
+        commandMode = false
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, true).apply()
         startForeground(NOTIFICATION_ID, notification("Active — say JARVIS"))
         speak("Good evening. JARVIS is online. How may I assist you?")
@@ -59,6 +61,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         active = false
         commandMode = false
         restarting = false
+        waitingForSpeechToFinish = false
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, false).apply()
         recognizer?.cancel()
         recognizer?.destroy()
@@ -69,7 +72,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun startRecognition() {
-        if (!active || restarting || !SpeechRecognizer.isRecognitionAvailable(this)) return
+        if (!active || restarting || waitingForSpeechToFinish || !SpeechRecognizer.isRecognitionAvailable(this)) return
         restarting = true
         recognizer?.destroy()
         recognizer = SpeechRecognizer.createSpeechRecognizer(this)
@@ -78,21 +81,33 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             override fun onBeginningOfSpeech() = Unit
             override fun onRmsChanged(rmsdB: Float) = Unit
             override fun onBufferReceived(buffer: ByteArray?) = Unit
-            override fun onEndOfSpeech() { restartRecognition() }
-            override fun onError(error: Int) { restartRecognition() }
+            override fun onEndOfSpeech() {
+                // Do not restart here. Android can deliver onResults immediately after onEndOfSpeech.
+            }
+            override fun onError(error: Int) {
+                restarting = false
+                if (active && !waitingForSpeechToFinish) restartRecognition()
+            }
             override fun onResults(results: android.os.Bundle?) {
                 restarting = false
                 val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty().trim()
+                if (spoken.isBlank()) {
+                    restartRecognition()
+                    return
+                }
                 handleSpeech(spoken)
-                if (!isSpeaking()) restartRecognition()
+                // If handleSpeech produced speech, its utterance listener will restart recognition.
+                // Otherwise restart now so the wake-word listener remains active.
+                if (!isSpeaking() && !waitingForSpeechToFinish) restartRecognition()
             }
             override fun onPartialResults(partialResults: android.os.Bundle?) = Unit
             override fun onEvent(eventType: Int, params: android.os.Bundle?) = Unit
         })
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.UK)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.UK.toLanguageTag())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
         }
         try {
             recognizer?.startListening(intent)
@@ -104,7 +119,9 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun restartRecognition() {
         restarting = false
-        if (active && !isSpeaking()) android.os.Handler(mainLooper).postDelayed({ startRecognition() }, 450)
+        if (active && !waitingForSpeechToFinish) {
+            android.os.Handler(mainLooper).postDelayed({ startRecognition() }, 600)
+        }
     }
 
     private fun handleSpeech(spoken: String) {
@@ -134,7 +151,10 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun speak(text: String) {
         if (text.isBlank()) return
+        waitingForSpeechToFinish = true
         recognizer?.cancel()
+        recognizer?.destroy()
+        recognizer = null
         val polished = polishForVoice(text)
         speakFallback(polished)
     }
@@ -205,8 +225,18 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 )
                 fallbackTts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) = Unit
-                    override fun onDone(utteranceId: String?) { android.os.Handler(mainLooper).post { if (active) startRecognition() } }
-                    override fun onError(utteranceId: String?) { android.os.Handler(mainLooper).post { if (active) startRecognition() } }
+                    override fun onDone(utteranceId: String?) {
+                        android.os.Handler(mainLooper).post {
+                            waitingForSpeechToFinish = false
+                            if (active) startRecognition()
+                        }
+                    }
+                    override fun onError(utteranceId: String?) {
+                        android.os.Handler(mainLooper).post {
+                            waitingForSpeechToFinish = false
+                            if (active) startRecognition()
+                        }
+                    }
                 })
             }
         }
