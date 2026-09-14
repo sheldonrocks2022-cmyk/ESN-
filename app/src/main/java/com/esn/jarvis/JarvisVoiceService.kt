@@ -28,8 +28,10 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
+    private var ttsReady = false
     private var active = false
     private var commandMode = false
+    private var restarting = false
 
     override fun onCreate() {
         super.onCreate()
@@ -38,10 +40,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP -> deactivate()
-            else -> activate()
-        }
+        if (intent?.action == ACTION_STOP) deactivate() else activate()
         return START_STICKY
     }
 
@@ -49,33 +48,39 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         active = true
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, true).apply()
         startForeground(NOTIFICATION_ID, notification("Active — say JARVIS"))
+        speak("JARVIS online. How can I help?")
         startRecognition()
     }
 
     private fun deactivate() {
         active = false
         commandMode = false
+        restarting = false
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, false).apply()
         recognizer?.cancel()
+        recognizer?.destroy()
+        recognizer = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
     private fun startRecognition() {
-        if (!active || !SpeechRecognizer.isRecognitionAvailable(this)) return
+        if (!active || restarting || !SpeechRecognizer.isRecognitionAvailable(this)) return
+        restarting = true
         recognizer?.destroy()
         recognizer = SpeechRecognizer.createSpeechRecognizer(this)
         recognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: android.os.Bundle?) = Unit
+            override fun onReadyForSpeech(params: android.os.Bundle?) { restarting = false }
             override fun onBeginningOfSpeech() = Unit
             override fun onRmsChanged(rmsdB: Float) = Unit
             override fun onBufferReceived(buffer: ByteArray?) = Unit
-            override fun onEndOfSpeech() { if (active) startRecognition() }
-            override fun onError(error: Int) { if (active) startRecognition() }
+            override fun onEndOfSpeech() { restartRecognition() }
+            override fun onError(error: Int) { restartRecognition() }
             override fun onResults(results: android.os.Bundle?) {
+                restarting = false
                 val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty().trim()
                 handleSpeech(spoken)
-                if (active) startRecognition()
+                restartRecognition()
             }
             override fun onPartialResults(partialResults: android.os.Bundle?) = Unit
             override fun onEvent(eventType: Int, params: android.os.Bundle?) = Unit
@@ -85,7 +90,19 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
         }
-        recognizer?.startListening(intent)
+        try {
+            recognizer?.startListening(intent)
+        } catch (_: Exception) {
+            restarting = false
+            restartRecognition()
+        }
+    }
+
+    private fun restartRecognition() {
+        restarting = false
+        if (active) {
+            android.os.Handler(mainLooper).postDelayed({ startRecognition() }, 500)
+        }
     }
 
     private fun handleSpeech(spoken: String) {
@@ -93,15 +110,14 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         val normalized = spoken.lowercase(Locale.getDefault()).replace(Regex("[^a-z0-9 ]"), "").trim()
         if (normalized.contains(CODE_101)) {
             speak("Code 101 acknowledged. Going offline.")
-            deactivate()
+            android.os.Handler(mainLooper).postDelayed({ deactivate() }, 900)
             return
         }
         if (!commandMode) {
-            if (normalized == WAKE || normalized.startsWith("$WAKE ") || normalized.startsWith("hey $WAKE")) {
+            if (normalized == WAKE || normalized.startsWith("$WAKE ") || normalized.startsWith("hey $WAKE ")) {
                 commandMode = true
                 val command = normalized.removePrefix("hey ").removePrefix(WAKE).trim()
-                if (command.isNotBlank()) execute(command)
-                else speak("Yes?")
+                if (command.isNotBlank()) execute(command) else speak("Yes?")
             }
             return
         }
@@ -110,12 +126,16 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun execute(command: String) {
+        speak("Okay.")
         val result = JarvisCommandEngine.execute(this, command)
         speak(result)
     }
 
     private fun speak(text: String) {
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
+        if (text.isBlank()) return
+        if (ttsReady) {
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis_${System.currentTimeMillis()}")
+        }
     }
 
     private fun notification(text: String): Notification {
@@ -134,7 +154,11 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) tts?.language = Locale.getDefault()
+        if (status == TextToSpeech.SUCCESS) {
+            val result = tts?.setLanguage(Locale.getDefault())
+            ttsReady = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED
+            if (active && ttsReady) speak("Voice system ready.")
+        }
     }
 
     override fun onDestroy() {
