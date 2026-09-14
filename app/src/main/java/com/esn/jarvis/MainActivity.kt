@@ -20,10 +20,11 @@ import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
     private var active by mutableStateOf(false)
-    private var message by mutableStateOf("JARVIS is installed. Enable Phone Access, then activate voice mode.")
+    private var message by mutableStateOf("JARVIS is ready. Microphone access is required for voice commands.")
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result[Manifest.permission.RECORD_AUDIO] == true) message = "Microphone ready."
+        if (result[Manifest.permission.RECORD_AUDIO] == true) message = "Microphone ready. Tap Activate JARVIS."
+        else message = "Microphone permission is required for voice commands."
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,7 +40,7 @@ class MainActivity : ComponentActivity() {
                 Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(Modifier.height(40.dp))
                     Text("JARVIS", color = Color(0xFF7DEFF2), fontSize = 42.sp)
-                    Text("PERSISTENT PHONE ASSISTANT", color = Color.White, fontSize = 13.sp)
+                    Text("VOICE ASSISTANT", color = Color.White, fontSize = 13.sp)
                     Spacer(Modifier.height(32.dp))
                     Text(if (active) "VOICE SYSTEM: ACTIVE" else "VOICE SYSTEM: OFFLINE", color = Color(0xFF42E8F4), fontSize = 18.sp)
                     Spacer(Modifier.height(12.dp))
@@ -50,21 +51,25 @@ class MainActivity : ComponentActivity() {
                     }
                     Spacer(Modifier.height(12.dp))
                     OutlinedButton(onClick = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Enable Full Phone Access")
+                        Text("Phone Access (Optional)")
                     }
                     Spacer(Modifier.height(24.dp))
-                    Text("When active: say “JARVIS” from outside this screen.\nTo shut listening down: say “JARVIS, Code 101”.", color = Color(0xFFB8C7D9), fontSize = 13.sp)
+                    Text("Basic commands work without Phone Access.\nTry: “JARVIS, open Discord”, “JARVIS, open YouTube”,\n“JARVIS, search the web for cats”, or “JARVIS, volume up”.", color = Color(0xFFB8C7D9), fontSize = 13.sp)
                 }
             }
         }
     }
 
     private fun toggleVoice() {
+        if (!active && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissionsIfNeeded()
+            return
+        }
         val action = if (active) JarvisVoiceService.ACTION_STOP else JarvisVoiceService.ACTION_START
         val intent = Intent(this, JarvisVoiceService::class.java).setAction(action)
         if (!active) startForegroundService(intent) else startService(intent)
         active = !active
-        message = if (active) "JARVIS is now listening in the background. Say JARVIS to speak." else "JARVIS is offline. The microphone listener is stopped."
+        message = if (active) "JARVIS is listening. Say “JARVIS” followed by a command." else "JARVIS is offline."
     }
 
     private fun requestPermissionsIfNeeded() {
