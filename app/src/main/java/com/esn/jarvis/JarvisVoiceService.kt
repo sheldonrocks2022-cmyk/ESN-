@@ -4,8 +4,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
@@ -28,8 +30,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         private const val ACTIVE = "active"
         private const val CODE_101 = "code 101"
         private const val WAKE = "jarvis"
-        private const val DEFAULT_RATE = 0.74f
-        private const val DEFAULT_PITCH = 0.72f
+        private const val DEFAULT_RATE = 0.72f
+        private const val DEFAULT_PITCH = 0.68f
     }
 
     private var recognizer: SpeechRecognizer? = null
@@ -42,11 +44,24 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var pendingSpeech: String? = null
     private var audioManager: AudioManager? = null
 
+    private val incomingMessageReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (!active || intent?.action != JarvisNotificationListenerService.ACTION_INCOMING_MESSAGE) return
+            val title = intent.getStringExtra(JarvisNotificationListenerService.EXTRA_TITLE).orEmpty().trim()
+            val text = intent.getStringExtra(JarvisNotificationListenerService.EXTRA_TEXT).orEmpty().trim()
+            if (title.isBlank() || text.isBlank()) return
+            speak("Incoming message from $title. $text")
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         fallbackTts = TextToSpeech(this, this)
         createChannel()
+        val filter = IntentFilter(JarvisNotificationListenerService.ACTION_INCOMING_MESSAGE)
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(incomingMessageReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        else @Suppress("DEPRECATION") registerReceiver(incomingMessageReceiver, filter)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -134,13 +149,9 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             return
         }
 
-        val command = if (normalized.startsWith(WAKE + " ")) {
-            normalized.removePrefix(WAKE).trim()
-        } else if (normalized == WAKE) {
-            ""
-        } else {
-            normalized
-        }
+        val command = if (normalized.startsWith(WAKE + " ")) normalized.removePrefix(WAKE).trim()
+        else if (normalized == WAKE) ""
+        else normalized
 
         if (command.isBlank()) {
             speak("Listening.")
@@ -180,7 +191,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun polishForVoice(text: String): String {
         var result = text.trim()
-        result = result
             .replace("I'm afraid I couldn't", "I couldn't")
             .replace("I'm afraid I can't", "I can't")
             .replace("Certainly. Opening ", "Opening ")
@@ -218,7 +228,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
         val voices = fallbackTts?.voices.orEmpty()
         val bestVoice = voices.asSequence()
-            .filter { voice -> voice.locale.language == "en" && !voice.isNetworkConnectionRequired }
+            .filter { it.locale.language == "en" && !it.isNetworkConnectionRequired }
             .sortedWith(
                 compareByDescending<Voice> { voice ->
                     val n = voice.name.lowercase(Locale.US)
@@ -231,11 +241,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                         n.contains("en-au") -> 75
                         else -> 50
                     }
-                }
-                    .thenByDescending { it.quality }
-                    .thenBy { it.latency }
-            )
-            .firstOrNull()
+                }.thenByDescending { it.quality }.thenBy { it.latency }
+            ).firstOrNull()
         if (bestVoice != null) fallbackTts?.voice = bestVoice
 
         fallbackTts?.setPitch(DEFAULT_PITCH)
@@ -251,6 +258,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        try { unregisterReceiver(incomingMessageReceiver) } catch (_: Exception) { }
         recognizer?.destroy()
         fallbackTts?.stop()
         fallbackTts?.shutdown()
