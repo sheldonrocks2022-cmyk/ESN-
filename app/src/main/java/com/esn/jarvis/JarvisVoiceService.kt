@@ -100,9 +100,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun restartRecognition() {
         restarting = false
-        if (active) {
-            android.os.Handler(mainLooper).postDelayed({ startRecognition() }, 500)
-        }
+        if (active) android.os.Handler(mainLooper).postDelayed({ startRecognition() }, 500)
     }
 
     private fun handleSpeech(spoken: String) {
@@ -126,7 +124,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun execute(command: String) {
-        val result = JarvisCommandEngine(this, command)
+        val result = JarvisCommandEngine(this).execute(command)
         speak(result)
     }
 
@@ -139,7 +137,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private fun polishForVoice(text: String): String {
         var result = text.trim()
         result = result
-            .replace("JARVIS online.", "JARVIS online.")
             .replace("I couldn't", "I'm afraid I couldn't")
             .replace("I can't", "I'm afraid I can't")
             .replace("I can’t", "I'm afraid I can't")
@@ -150,18 +147,13 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             .replace("Cancelled.", "Very well. Cancelled.")
             .replace("Canceling.", "Very well. Canceling.")
             .replace("Settings opened.", "Certainly. I've opened Settings.")
-            .replace("Settings.", "Certainly. Opening Settings.")
             .replace("Not available", "I'm afraid that isn't available")
             .replace("not available", "I'm afraid that isn't available")
             .replace("Phone Access isn't enabled", "I'm afraid Phone Access is not enabled")
             .replace("Phone Access is not enabled", "I'm afraid Phone Access is not enabled")
             .replace("Review it and tap Send", "Please review the message, then tap Send")
-
-        if (result.equals("Okay.", ignoreCase = true)) {
-            result = "Very good."
-        } else if (result.equals("Done", ignoreCase = true)) {
-            result = "Very good. Done."
-        }
+        if (result.equals("Okay.", ignoreCase = true)) result = "Very good."
+        else if (result.equals("Done", ignoreCase = true)) result = "Very good. Done."
         return result
     }
 
@@ -183,12 +175,10 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             val british = tts?.setLanguage(Locale.UK)
-            if (british == TextToSpeech.LANG_MISSING_DATA || british == TextToSpeech.LANG_NOT_SUPPORTED) {
+            ttsReady = if (british == TextToSpeech.LANG_MISSING_DATA || british == TextToSpeech.LANG_NOT_SUPPORTED) {
                 val fallback = tts?.setLanguage(Locale.getDefault())
-                ttsReady = fallback != TextToSpeech.LANG_MISSING_DATA && fallback != TextToSpeech.LANG_NOT_SUPPORTED
-            } else {
-                ttsReady = true
-            }
+                fallback != TextToSpeech.LANG_MISSING_DATA && fallback != TextToSpeech.LANG_NOT_SUPPORTED
+            } else true
             if (ttsReady) {
                 tts?.setPitch(0.84f)
                 tts?.setSpeechRate(0.88f)
