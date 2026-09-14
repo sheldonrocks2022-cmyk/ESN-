@@ -134,9 +134,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             return
         }
 
-        // JARVIS can be addressed explicitly, but the wake word is no longer required.
-        // Every recognized sentence is treated as a command so the user can simply speak
-        // naturally: "open Discord", "turn on the flashlight", "set a timer for five minutes", etc.
         val command = if (normalized.startsWith(WAKE + " ")) {
             normalized.removePrefix(WAKE).trim()
         } else if (normalized == WAKE) {
@@ -156,8 +153,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun execute(command: String) {
-        val result = JarvisCommandEngine.execute(this, command)
-        speak(result)
+        val naturalResult = JarvisNaturalCommandRouter.execute(this, command)
+        speak(naturalResult ?: JarvisCommandEngine.execute(this, command))
     }
 
     private fun speak(text: String) {
