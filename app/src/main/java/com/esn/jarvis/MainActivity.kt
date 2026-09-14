@@ -42,12 +42,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
     private var message by mutableStateOf("Systems ready. Awaiting activation.")
     private var batteryText by mutableStateOf("Battery: checking…")
     private var clockText by mutableStateOf("")
+    private val commandHistory = mutableStateListOf<String>()
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result[Manifest.permission.RECORD_AUDIO] == true) message = "Microphone ready. JARVIS is awaiting activation."
@@ -86,6 +87,7 @@ class MainActivity : ComponentActivity() {
     private fun JarvisScreen() {
         val transition = rememberInfiniteTransition(label = "jarvis_core")
         val pulse by transition.animateFloat(initialValue = 0.82f, targetValue = 1.08f, animationSpec = infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "pulse")
+        val scan by transition.animateFloat(initialValue = 0.08f, targetValue = 0.28f, animationSpec = infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "scan")
         LaunchedEffect(Unit) {
             while (true) {
                 clockText = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
@@ -106,19 +108,26 @@ class MainActivity : ComponentActivity() {
                             Text(if (active) "ONLINE" else "STANDBY", color = if (active) Color(0xFF7DEFF2) else Color(0xFF7891AA), fontSize = 10.sp)
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Box(Modifier.size(230.dp), contentAlignment = Alignment.Center) {
+                    Spacer(Modifier.height(10.dp))
+                    HudStatusStrip(active)
+                    Spacer(Modifier.height(8.dp))
+                    Box(Modifier.size(240.dp), contentAlignment = Alignment.Center) {
                         Canvas(Modifier.fillMaxSize()) {
                             val c = Offset(size.width / 2f, size.height / 2f)
                             val r = size.minDimension * 0.31f
                             drawCircle(Color(0xFF061426), r * 1.35f)
+                            drawCircle(Color(0xFF42E8F4).copy(alpha = scan), r * 1.48f)
                             drawCircle(Color(0xFF42E8F4), r * pulse, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f))
                             drawArc(Color(0xFF168CFF), -35f, 105f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(5f, cap = StrokeCap.Round), topLeft = Offset(c.x-r*1.18f, c.y-r*1.18f), size = androidx.compose.ui.geometry.Size(r*2.36f, r*2.36f))
                             drawArc(Color(0xFF6366F1), 145f, 105f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(5f, cap = StrokeCap.Round), topLeft = Offset(c.x-r*1.18f, c.y-r*1.18f), size = androidx.compose.ui.geometry.Size(r*2.36f, r*2.36f))
                             drawCircle(Color(0xFF7DEFF2), r * 0.36f)
                             drawCircle(Color(0xFF061426), r * 0.23f)
+                            drawLine(Color(0xFF42E8F4).copy(alpha = scan), Offset(c.x-r*1.6f, c.y), Offset(c.x+r*1.6f, c.y), 1.5f)
                         }
-                        Text(if (active) "LISTENING" else "JARVIS", color = Color(0xFF7DEFF2), fontSize = 18.sp)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(if (active) "LISTENING" else "JARVIS", color = Color(0xFF7DEFF2), fontSize = 18.sp)
+                            Text(if (active) "VOICE LINK ACTIVE" else "CORE STANDBY", color = Color(0xFF7891AA), fontSize = 9.sp, modifier = Modifier.alpha(0.9f))
+                        }
                     }
                     Text(message, color = Color(0xFFD6E2F0), fontSize = 14.sp, modifier = Modifier.padding(horizontal = 12.dp))
                     Spacer(Modifier.height(12.dp))
@@ -161,6 +170,18 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Spacer(Modifier.height(12.dp))
+                    if (commandHistory.isNotEmpty()) {
+                        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF071522)), shape = RoundedCornerShape(16.dp)) {
+                            Column(Modifier.padding(15.dp)) {
+                                Text("RECENT ACTIVITY", color = Color(0xFF42E8F4), fontSize = 12.sp)
+                                Spacer(Modifier.height(7.dp))
+                                commandHistory.takeLast(5).reversed().forEach { entry ->
+                                    Text(entry, color = Color(0xFF9FB3C7), fontSize = 11.sp, modifier = Modifier.padding(vertical = 2.dp))
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
                     OutlinedButton(onClick = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }, modifier = Modifier.fillMaxWidth()) { Text("PHONE ACCESS • OPTIONAL", color = Color(0xFF7DEFF2)) }
                     Spacer(Modifier.height(10.dp))
                     Text("Screen-level controls may be limited by Android or account restrictions.", color = Color(0xFF60778E), fontSize = 10.sp)
@@ -170,20 +191,41 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Composable private fun TelemetryRow(label: String, value: String) {
+    @Composable
+    private fun HudStatusStrip(active: Boolean) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            StatusChip("CORE", if (active) "LIVE" else "IDLE", Modifier.weight(1f))
+            StatusChip("VOICE", if (hasMicPermission()) "READY" else "LOCKED", Modifier.weight(1f))
+            StatusChip("TTS", "NATIVE", Modifier.weight(1f))
+        }
+    }
+
+    @Composable
+    private fun StatusChip(label: String, value: String, modifier: Modifier) {
+        Column(modifier.border(1.dp, Color(0xFF123B54), RoundedCornerShape(8.dp)).padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(label, color = Color(0xFF5E7A90), fontSize = 8.sp)
+            Text(value, color = Color(0xFF7DEFF2), fontSize = 9.sp)
+        }
+    }
+
+    @Composable
+    private fun TelemetryRow(label: String, value: String) {
         Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, color = Color(0xFF71879B), fontSize = 11.sp)
             Text(value, color = Color(0xFFD6E2F0), fontSize = 11.sp)
         }
     }
 
-    @Composable private fun HudButton(label: String, modifier: Modifier, onClick: () -> Unit) {
+    @Composable
+    private fun HudButton(label: String, modifier: Modifier, onClick: () -> Unit) {
         OutlinedButton(onClick = onClick, modifier = modifier.height(44.dp).border(1.dp, Color(0xFF164B68), RoundedCornerShape(10.dp)), shape = RoundedCornerShape(10.dp)) { Text(label, color = Color(0xFF9FEFF2), fontSize = 11.sp) }
     }
 
     private fun runQuickCommand(command: String) {
         val result = JarvisCommandEngine.execute(this, command)
         message = result
+        commandHistory.add("${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())}  •  $command  →  $result")
+        if (commandHistory.size > 12) commandHistory.removeAt(0)
     }
 
     private fun toggleVoice() {
@@ -193,6 +235,7 @@ class MainActivity : ComponentActivity() {
         if (!active) startForegroundService(intent) else startService(intent)
         active = !active
         message = if (active) "JARVIS is listening. Awaiting your command." else "JARVIS is offline."
+        commandHistory.add("${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())}  •  VOICE LINK  →  ${if (active) "ACTIVATED" else "DEACTIVATED"}")
     }
 
     private fun hasMicPermission(): Boolean = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
