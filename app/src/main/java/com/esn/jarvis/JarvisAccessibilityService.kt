@@ -9,6 +9,7 @@ class JarvisAccessibilityService : AccessibilityService() {
     companion object {
         var instance: JarvisAccessibilityService? = null
             private set
+        fun currentRoot(): AccessibilityNodeInfo? = instance?.rootInActiveWindow
         fun clickText(text: String) = instance?.clickTextInternal(text) == true
         fun typeText(text: String) = instance?.typeTextInternal(text) == true
         fun back() = instance?.performGlobalAction(GLOBAL_ACTION_BACK) == true
@@ -16,6 +17,8 @@ class JarvisAccessibilityService : AccessibilityService() {
         fun recents() = instance?.performGlobalAction(GLOBAL_ACTION_RECENTS) == true
         fun scrollForward() = instance?.scrollInternal(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) == true
         fun scrollBackward() = instance?.scrollInternal(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) == true
+        fun notifications() = instance?.performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS) == true
+        fun quickSettings() = instance?.performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS) == true
     }
 
     override fun onServiceConnected() { super.onServiceConnected(); instance = this }
