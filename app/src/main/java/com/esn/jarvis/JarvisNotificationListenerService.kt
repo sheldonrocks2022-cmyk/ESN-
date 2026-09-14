@@ -12,26 +12,23 @@ class JarvisNotificationListenerService : NotificationListenerService() {
         private const val MAX_ITEMS = 25
 
         fun readLatestMessages(serviceContext: android.content.Context): String {
-            val raw = serviceContext.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
-                .getString(KEY_ITEMS, "")
-                .orEmpty()
+            val raw = serviceContext.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString(KEY_ITEMS, "").orEmpty()
             if (raw.isBlank()) return "I don't have any recent message notifications to read."
             val items = raw.split("\n---\n").filter { it.isNotBlank() }.takeLast(5).reversed()
             if (items.isEmpty()) return "I don't have any recent message notifications to read."
             return "Here are your most recent messages. " + items.joinToString(" ")
         }
 
-        fun notificationAccessSettings(serviceContext: android.content.Context): String {
-            return try {
-                serviceContext.startActivity(
-                    android.content.Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
-                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-                "Opening notification access settings. Enable JARVIS so I can read your message notifications."
-            } catch (_: Exception) {
-                "I couldn't open notification access settings."
-            }
+        fun readLatestMessage(serviceContext: android.content.Context): String {
+            val raw = serviceContext.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString(KEY_ITEMS, "").orEmpty()
+            val latest = raw.split("\n---\n").filter { it.isNotBlank() }.lastOrNull()
+            return latest?.let { "The latest message is: $it" } ?: "I don't have a recent message notification."
         }
+
+        fun notificationAccessSettings(serviceContext: android.content.Context): String = try {
+            serviceContext.startActivity(android.content.Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            "Opening notification access settings. Enable JARVIS so I can read your message notifications."
+        } catch (_: Exception) { "I couldn't open notification access settings." }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -40,16 +37,12 @@ class JarvisNotificationListenerService : NotificationListenerService() {
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
         if (text.isBlank() || TextUtils.isEmpty(title)) return
-
-        val ignored = listOf("download", "update available", "charging", "battery", "silent notifications")
         val lower = "$title $text".lowercase()
+        val ignored = listOf("download", "update available", "charging", "battery", "silent notifications")
         if (ignored.any { lower.contains(it) }) return
 
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        val existing = prefs.getString(KEY_ITEMS, "").orEmpty()
-            .split("\n---\n")
-            .filter { it.isNotBlank() }
-            .toMutableList()
+        val existing = prefs.getString(KEY_ITEMS, "").orEmpty().split("\n---\n").filter { it.isNotBlank() }.toMutableList()
         val entry = "$title says: $text"
         existing.remove(entry)
         existing.add(entry)
