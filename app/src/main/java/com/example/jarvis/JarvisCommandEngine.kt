@@ -24,7 +24,7 @@ class JarvisCommandEngine(private val context: Context) {
     fun execute(command: String): String {
         val result = executeInternal(command)
         if (command.trim().lowercase(Locale.getDefault()) != "repeat that") {
-            prefs.edit().putString("last_response", result).apply()
+            prefs.edit().putString("last_response", result).putString("last_command", command.trim()).apply()
         }
         return result
     }
@@ -33,6 +33,16 @@ class JarvisCommandEngine(private val context: Context) {
         val raw = command.trim()
         val c = raw.lowercase(Locale.getDefault())
         if (c.isBlank()) return "Yes, sir?"
+        if (c == "hello" || c == "hi" || c == "hey") return "Good to hear from you, sir. JARVIS is standing by."
+        if (c == "good morning") return "Good morning, sir. JARVIS is online and ready."
+        if (c == "good afternoon") return "Good afternoon, sir. How may I assist you?"
+        if (c == "good evening") return "Good evening, sir. All systems are standing by."
+        if (c == "good night") return "Good night, sir. I'll remain ready when you return."
+        if (c == "thank you" || c == "thanks" || c == "thanks jarvis") return "You're most welcome, sir."
+        if (c == "are you there" || c == "are you online") return "Always, sir. JARVIS is online and listening."
+        if (c == "what are you doing") return "Monitoring the command system and waiting for your next instruction, sir."
+        if (c == "who are you") return "I am JARVIS, your personal Android voice assistant. I manage supported phone commands, information, routines, and system controls."
+        if (c == "tell me a joke" || c == "tell me something funny") return "I would tell you a UDP joke, sir, but you might not get it."
         if (c == "code 101" || c.contains("code one oh one")) return "Emergency shutdown code accepted. JARVIS is going offline."
 
         val smsPrefixes = listOf("text ", "send a text to ", "send text to ", "send a text message to ", "send a text message ", "send sms to ", "sms ")
@@ -63,6 +73,8 @@ class JarvisCommandEngine(private val context: Context) {
         if (c.startsWith("search google for ")) return searchGoogle(raw.substring(19).trim())
         if (c.startsWith("search youtube for ")) return openUrl("https://www.youtube.com/results?search_query=" + Uri.encode(raw.substring(19).trim()), "YouTube")
         if (c.startsWith("search reddit for ")) return openUrl("https://www.reddit.com/search/?q=" + Uri.encode(raw.substring(18).trim()), "Reddit")
+        if (c == "search again" || c == "repeat the search") return searchGoogle(prefs.getString("last_search", "").orEmpty())
+        if (c.startsWith("now search for ")) return searchGoogle(raw.substring(15).trim())
 
         if (c == "turn on flashlight" || c == "turn the flashlight on" || c == "flashlight on") return setFlashlight(true)
         if (c == "turn off flashlight" || c == "turn the flashlight off" || c == "flashlight off") return setFlashlight(false)
@@ -93,7 +105,7 @@ class JarvisCommandEngine(private val context: Context) {
         if (c == "is bluetooth on" || c == "bluetooth status") return "Bluetooth status is available in Android Settings."
 
         if (c.startsWith("set a timer for ")) return setTimer(raw.substring(16).trim())
-        if (c.startsWith("set an alarm for ")) return setAlarm(raw.substring(18).trim())
+        if (c.startsWith("set an alarm for ")) return setAlarm(raw.substring(17).trim())
         if (c.startsWith("remind me in ")) return setReminder(raw.substring(13).trim())
         if (c.startsWith("remind me to ")) return parseReminderText(raw.substring(13).trim())
 
@@ -115,16 +127,13 @@ class JarvisCommandEngine(private val context: Context) {
         if (c == "jarvis help" || c == "help" || c == "what can you do") return help()
         if (c == "go to sleep" || c == "sleep" || c == "stop listening") return "JARVIS voice mode can be stopped from the notification controls."
         if (c == "wake up" || c == "jarvis wake up") return "JARVIS is already awake."
-        if (c == "repeat that") return prefs.getString("last_response", "I don't have a previous response stored yet.") ?: "I don't have a previous response stored yet."
+        if (c == "repeat that" || c == "repeat") return prefs.getString("last_response", "I don't have a previous response stored yet.") ?: "I don't have a previous response stored yet."
         if (c == "cancel" || c == "cancel that") return "Very well. Cancelled."
         return "I can hear you, but I don't have an action for that yet. Try help, status, diagnostics, open an app, search the web, set a timer, set an alarm, or ask for the time."
     }
 
     private fun parseSms(payload: String): Pair<String, String>? {
-        val patterns = listOf(
-            Regex("^(.+?)\\s+(?:saying|that says|and say)\\s+(.+)$", RegexOption.IGNORE_CASE),
-            Regex("^(.+?)\\s*:\\s*(.+)$")
-        )
+        val patterns = listOf(Regex("^(.+?)\\s+(?:saying|that says|and say)\\s+(.+)$", RegexOption.IGNORE_CASE), Regex("^(.+?)\\s*:\\s*(.+)$"))
         for (pattern in patterns) pattern.find(payload)?.let { match ->
             val recipient = match.groupValues[1].trim()
             val message = match.groupValues[2].trim()
@@ -134,11 +143,7 @@ class JarvisCommandEngine(private val context: Context) {
     }
 
     private fun openSmsComposer(recipient: String, message: String): String = try {
-        val intent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("smsto:${Uri.encode(recipient)}")
-            putExtra("sms_body", message)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val intent = Intent(Intent.ACTION_SENDTO).apply { data = Uri.parse("smsto:${Uri.encode(recipient)}"); putExtra("sms_body", message); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
         context.startActivity(intent)
         "I opened a text to $recipient. Please review the message, then tap Send."
     } catch (_: Exception) { "I'm afraid I couldn't open the messaging app for that text." }
@@ -178,14 +183,24 @@ class JarvisCommandEngine(private val context: Context) {
         } catch (_: Exception) { "I'm afraid I couldn't open $requested." }
     }
 
+    private fun isAppInstalled(name: String): Boolean {
+        val wanted = name.lowercase(Locale.getDefault())
+        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        return context.packageManager.queryIntentActivities(launcherIntent, PackageManager.MATCH_ALL).any {
+            it.loadLabel(context.packageManager).toString().lowercase(Locale.getDefault()).contains(wanted)
+        }
+    }
+
     private fun openUrl(url: String, name: String): String = try {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         "Certainly. Opening $name."
     } catch (_: Exception) { "I'm afraid I couldn't open $name." }
 
-    private fun searchGoogle(query: String): String = if (query.isBlank()) "What would you like me to search for?" else openUrl("https://www.google.com/search?q=" + Uri.encode(query), "Google")
-
-    private fun openSettings(): String = openSettingsPanel(Settings.ACTION_SETTINGS, "Settings")
+    private fun searchGoogle(query: String): String {
+        if (query.isBlank()) return "What would you like me to search for?"
+        prefs.edit().putString("last_search", query).apply()
+        return openUrl("https://www.google.com/search?q=" + Uri.encode(query), "Google")
+    }
 
     private fun openSettingsPanel(action: String, name: String): String = try {
         context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -298,7 +313,7 @@ class JarvisCommandEngine(private val context: Context) {
     private fun scheduleReminder(delayMs: Long, message: String): String {
         return try {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(context, JarvisReminderReceiver::class.java).putExtra(JarvisReminderReceiver.EXTRA_MESSAGE, message)
+            val intent = Intent(context, com.esn.jarvis.JarvisReminderReceiver::class.java).putExtra(com.esn.jarvis.JarvisReminderReceiver.EXTRA_MESSAGE, message)
             val requestCode = (System.currentTimeMillis() and 0x7fffffff).toInt()
             val pending = PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delayMs, pending)
@@ -317,7 +332,7 @@ class JarvisCommandEngine(private val context: Context) {
         val current = prefs.getFloat("speech_rate", 0.82f).coerceIn(0.5f, 1.5f)
         val next = (current + delta).coerceIn(0.5f, 1.5f)
         prefs.edit().putFloat("speech_rate", next).apply()
-        return "Speaking rate adjusted to ${((next / 0.82f) * 100).toInt()} percent of cinematic default."
+        return "Speaking rate adjusted."
     }
 
     private fun resetSpeechRate(): String {
@@ -356,7 +371,7 @@ class JarvisCommandEngine(private val context: Context) {
     }
 
     private fun diagnostics(): String {
-        val mic = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val mic = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val recognition = android.speech.SpeechRecognizer.isRecognitionAvailable(context)
         val apps = listOf("Discord", "YouTube", "Spotify", "Gmail", "Snapchat", "Minecraft").count { isAppInstalled(it) }
         val network = (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).activeNetwork != null
@@ -364,17 +379,8 @@ class JarvisCommandEngine(private val context: Context) {
     }
 
     private fun systemStatus(): String {
-        val mic = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        val battery = batteryStatus()
-        return "JARVIS system status: command engine online, microphone ${if (mic) "ready" else "not granted"}, $battery"
-    }
-
-    private fun isAppInstalled(name: String): Boolean {
-        val wanted = name.lowercase(Locale.getDefault())
-        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        return context.packageManager.queryIntentActivities(launcherIntent, PackageManager.MATCH_ALL).any {
-            it.loadLabel(context.packageManager).toString().lowercase(Locale.getDefault()).contains(wanted)
-        }
+        val mic = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        return "JARVIS system status: command engine online, microphone ${if (mic) "ready" else "not granted"}, ${batteryStatus()}"
     }
 
     private fun gamingMode(): String {
@@ -390,5 +396,5 @@ class JarvisCommandEngine(private val context: Context) {
         return "Work mode activated. Gmail and Google are ready."
     }
 
-    private fun help(): String = "I can launch installed apps by name, text or call, search Google, YouTube and Reddit, control flashlight, volume and supported brightness, open connectivity settings, control media, set timers, alarms and reminders, report battery and storage, run diagnostics, change speaking speed, and activate gaming or work mode. Phone Access adds supported screen controls."
+    private fun help(): String = "I can launch installed apps by name, text or call, search Google, YouTube and Reddit, control flashlight, volume and supported brightness, open connectivity settings, control media, set timers, alarms and reminders, report battery and storage, run diagnostics, change speaking speed, answer basic conversation, remember the last response and search, and activate gaming or work mode. Phone Access adds supported screen controls."
 }
