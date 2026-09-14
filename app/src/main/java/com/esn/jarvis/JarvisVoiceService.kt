@@ -48,7 +48,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         active = true
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, true).apply()
         startForeground(NOTIFICATION_ID, notification("Active — say JARVIS"))
-        speak("JARVIS online. How can I help?")
+        speak("Good evening. JARVIS is online. How may I assist you?")
         startRecognition()
     }
 
@@ -87,7 +87,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         })
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.UK)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
         }
         try {
@@ -109,15 +109,15 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         if (spoken.isBlank()) return
         val normalized = spoken.lowercase(Locale.getDefault()).replace(Regex("[^a-z0-9 ]"), "").trim()
         if (normalized.contains(CODE_101)) {
-            speak("Code 101 acknowledged. Going offline.")
-            android.os.Handler(mainLooper).postDelayed({ deactivate() }, 900)
+            speak("Code 101 acknowledged. I shall stand down.")
+            android.os.Handler(mainLooper).postDelayed({ deactivate() }, 1200)
             return
         }
         if (!commandMode) {
             if (normalized == WAKE || normalized.startsWith("$WAKE ") || normalized.startsWith("hey $WAKE ")) {
                 commandMode = true
                 val command = normalized.removePrefix("hey ").removePrefix(WAKE).trim()
-                if (command.isNotBlank()) execute(command) else speak("Yes?")
+                if (command.isNotBlank()) execute(command) else speak("Yes, sir?")
             }
             return
         }
@@ -126,16 +126,24 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun execute(command: String) {
-        speak("Okay.")
         val result = JarvisCommandEngine.execute(this, command)
         speak(result)
     }
 
     private fun speak(text: String) {
-        if (text.isBlank()) return
-        if (ttsReady) {
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis_${System.currentTimeMillis()}")
-        }
+        if (text.isBlank() || !ttsReady) return
+        val polished = polishForVoice(text)
+        tts?.speak(polished, TextToSpeech.QUEUE_FLUSH, null, "jarvis_${System.currentTimeMillis()}")
+    }
+
+    private fun polishForVoice(text: String): String {
+        return text
+            .replace("JARVIS online.", "JARVIS online.")
+            .replace("I couldn't", "I'm afraid I couldn't")
+            .replace("I can't", "I'm afraid I can't")
+            .replace("Opening ", "Certainly. Opening ")
+            .replace("Cancelled.", "Very well. Cancelled.")
+            .trim()
     }
 
     private fun notification(text: String): Notification {
@@ -155,9 +163,21 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val result = tts?.setLanguage(Locale.getDefault())
-            ttsReady = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED
-            if (active && ttsReady) speak("Voice system ready.")
+            val british = tts?.setLanguage(Locale.UK)
+            if (british == TextToSpeech.LANG_MISSING_DATA || british == TextToSpeech.LANG_NOT_SUPPORTED) {
+                val fallback = tts?.setLanguage(Locale.getDefault())
+                ttsReady = fallback != TextToSpeech.LANG_MISSING_DATA && fallback != TextToSpeech.LANG_NOT_SUPPORTED
+            } else {
+                ttsReady = true
+            }
+
+            if (ttsReady) {
+                // Cinematic assistant profile: measured pace, slightly lower pitch, British English when available.
+                tts?.setPitch(0.84f)
+                tts?.setSpeechRate(0.88f)
+                tts?.setQueueMode(TextToSpeech.QUEUE_FLUSH)
+                if (active) speak("Voice systems are ready.")
+            }
         }
     }
 
