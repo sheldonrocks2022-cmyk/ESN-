@@ -15,6 +15,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import java.util.Locale
 
 class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
@@ -167,8 +168,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun polishForVoice(text: String): String {
         var result = text.trim()
-        // Keep command responses direct. The old version added repeated filler such as
-        // "Certainly" and "Very good", which made the voice sound artificial and annoying.
         result = result
             .replace("I'm afraid I couldn't", "I couldn't")
             .replace("I'm afraid I can't", "I can't")
@@ -206,8 +205,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         fallbackTtsReady = british != TextToSpeech.LANG_MISSING_DATA && british != TextToSpeech.LANG_NOT_SUPPORTED
         if (!fallbackTtsReady) return
 
-        // Prefer an installed local British English voice. If the device has several,
-        // choose the highest-quality voice available rather than a generic default.
         val bestVoice = fallbackTts?.voices
             ?.asSequence()
             ?.filter { voice ->
@@ -215,9 +212,9 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 (voice.locale.country == "GB" || voice.locale.country == "AU" || voice.locale.country == "IE") &&
                 !voice.isNetworkConnectionRequired
             }
-            ?.sortedWith(compareByDescending<TextToSpeech.Voice> { it.quality }.thenBy { it.locale.country != "GB" })
+            ?.sortedWith(compareByDescending<Voice> { it.quality }.thenBy { it.locale.country != "GB" })
             ?.firstOrNull()
-        if (bestVoice != null) fallbackTts?.setVoice(bestVoice)
+        if (bestVoice != null) fallbackTts?.voice = bestVoice
 
         fallbackTts?.setPitch(DEFAULT_PITCH)
         fallbackTts?.setSpeechRate(getSharedPreferences(PREFS, MODE_PRIVATE).getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.55f, 1.25f))
