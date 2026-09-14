@@ -53,10 +53,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private var active by mutableStateOf(false)
@@ -85,13 +85,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun JarvisScreen() {
         val transition = rememberInfiniteTransition(label = "jarvis_core")
-        val pulse by transition.animateFloat(
-            initialValue = 0.82f,
-            targetValue = 1.08f,
-            animationSpec = infiniteRepeatable(tween(1400), RepeatMode.Reverse),
-            label = "pulse"
-        )
-
+        val pulse by transition.animateFloat(initialValue = 0.82f, targetValue = 1.08f, animationSpec = infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "pulse")
         LaunchedEffect(Unit) {
             while (true) {
                 clockText = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
@@ -99,13 +93,9 @@ class MainActivity : ComponentActivity() {
                 delay(1000)
             }
         }
-
         MaterialTheme {
             Surface(Modifier.fillMaxSize(), color = Color(0xFF030B16)) {
-                Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
                             Text("JARVIS", color = Color(0xFF7DEFF2), fontSize = 30.sp)
@@ -116,7 +106,6 @@ class MainActivity : ComponentActivity() {
                             Text(if (active) "ONLINE" else "STANDBY", color = if (active) Color(0xFF7DEFF2) else Color(0xFF7891AA), fontSize = 10.sp)
                         }
                     }
-
                     Spacer(Modifier.height(12.dp))
                     Box(Modifier.size(230.dp), contentAlignment = Alignment.Center) {
                         Canvas(Modifier.fillMaxSize()) {
@@ -131,10 +120,8 @@ class MainActivity : ComponentActivity() {
                         }
                         Text(if (active) "LISTENING" else "JARVIS", color = Color(0xFF7DEFF2), fontSize = 18.sp)
                     }
-
                     Text(message, color = Color(0xFFD6E2F0), fontSize = 14.sp, modifier = Modifier.padding(horizontal = 12.dp))
                     Spacer(Modifier.height(12.dp))
-
                     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF071A2B)), shape = RoundedCornerShape(16.dp)) {
                         Column(Modifier.padding(15.dp)) {
                             Text("SYSTEM TELEMETRY", color = Color(0xFF42E8F4), fontSize = 12.sp)
@@ -146,14 +133,8 @@ class MainActivity : ComponentActivity() {
                             TelemetryRow("POWER", batteryText.removePrefix("Battery: "))
                         }
                     }
-
                     Spacer(Modifier.height(12.dp))
-                    Button(
-                        onClick = { toggleVoice() },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A3550))
-                    ) { Text(if (active) "DEACTIVATE JARVIS" else "ACTIVATE JARVIS", color = Color(0xFF7DEFF2)) }
-
+                    Button(onClick = { toggleVoice() }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A3550))) { Text(if (active) "DEACTIVATE JARVIS" else "ACTIVATE JARVIS", color = Color(0xFF7DEFF2)) }
                     Spacer(Modifier.height(12.dp))
                     Text("QUICK COMMANDS", color = Color(0xFF42E8F4), fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(7.dp))
@@ -168,7 +149,6 @@ class MainActivity : ComponentActivity() {
                         Spacer(Modifier.width(8.dp))
                         HudButton("WORK", Modifier.weight(1f)) { runQuickCommand("work mode") }
                     }
-
                     Spacer(Modifier.height(14.dp))
                     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF061426)), shape = RoundedCornerShape(16.dp)) {
                         Column(Modifier.padding(15.dp)) {
@@ -180,11 +160,8 @@ class MainActivity : ComponentActivity() {
                             Text("Say:  JARVIS, start gaming mode", color = Color(0xFFB8C7D9), fontSize = 12.sp)
                         }
                     }
-
                     Spacer(Modifier.height(12.dp))
-                    OutlinedButton(onClick = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("PHONE ACCESS • OPTIONAL", color = Color(0xFF7DEFF2))
-                    }
+                    OutlinedButton(onClick = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }, modifier = Modifier.fillMaxWidth()) { Text("PHONE ACCESS • OPTIONAL", color = Color(0xFF7DEFF2)) }
                     Spacer(Modifier.height(10.dp))
                     Text("Screen-level controls may be limited by Android or account restrictions.", color = Color(0xFF60778E), fontSize = 10.sp)
                     Spacer(Modifier.height(18.dp))
@@ -193,33 +170,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Composable
-    private fun TelemetryRow(label: String, value: String) {
+    @Composable private fun TelemetryRow(label: String, value: String) {
         Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, color = Color(0xFF71879B), fontSize = 11.sp)
             Text(value, color = Color(0xFFD6E2F0), fontSize = 11.sp)
         }
     }
 
-    @Composable
-    private fun HudButton(label: String, modifier: Modifier, onClick: () -> Unit) {
-        OutlinedButton(
-            onClick = onClick,
-            modifier = modifier.height(44.dp).border(1.dp, Color(0xFF164B68), RoundedCornerShape(10.dp)),
-            shape = RoundedCornerShape(10.dp)
-        ) { Text(label, color = Color(0xFF9FEFF2), fontSize = 11.sp) }
+    @Composable private fun HudButton(label: String, modifier: Modifier, onClick: () -> Unit) {
+        OutlinedButton(onClick = onClick, modifier = modifier.height(44.dp).border(1.dp, Color(0xFF164B68), RoundedCornerShape(10.dp)), shape = RoundedCornerShape(10.dp)) { Text(label, color = Color(0xFF9FEFF2), fontSize = 11.sp) }
     }
 
     private fun runQuickCommand(command: String) {
-        val result = com.example.jarvis.JarvisCommandEngine(this).execute(command)
+        val result = JarvisCommandEngine.execute(this, command)
         message = result
     }
 
     private fun toggleVoice() {
-        if (!active && !hasMicPermission()) {
-            requestPermissionsIfNeeded()
-            return
-        }
+        if (!active && !hasMicPermission()) { requestPermissionsIfNeeded(); return }
         val action = if (active) JarvisVoiceService.ACTION_STOP else JarvisVoiceService.ACTION_START
         val intent = Intent(this, JarvisVoiceService::class.java).setAction(action)
         if (!active) startForegroundService(intent) else startService(intent)
