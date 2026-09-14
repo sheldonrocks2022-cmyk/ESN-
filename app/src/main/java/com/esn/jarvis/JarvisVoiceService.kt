@@ -137,13 +137,36 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun polishForVoice(text: String): String {
-        return text
+        var result = text.trim()
+
+        // Give common command responses a more natural cinematic-assistant cadence.
+        result = result
             .replace("JARVIS online.", "JARVIS online.")
             .replace("I couldn't", "I'm afraid I couldn't")
             .replace("I can't", "I'm afraid I can't")
+            .replace("I can’t", "I'm afraid I can't")
             .replace("Opening ", "Certainly. Opening ")
+            .replace("Launching ", "Certainly. Launching ")
+            .replace("Searching for ", "Certainly. Searching for ")
+            .replace("Done.", "Very good. Done.")
             .replace("Cancelled.", "Very well. Cancelled.")
-            .trim()
+            .replace("Canceling.", "Very well. Canceling.")
+            .replace("Settings opened.", "Certainly. I've opened Settings.")
+            .replace("Settings.", "Certainly. Opening Settings.")
+            .replace("Not available", "I'm afraid that isn't available")
+            .replace("not available", "I'm afraid that isn't available")
+            .replace("Phone Access isn't enabled", "I'm afraid Phone Access is not enabled")
+            .replace("Phone Access is not enabled", "I'm afraid Phone Access is not enabled")
+            .replace("Review it and tap Send", "Please review the message, then tap Send")
+
+        // Add a short conversational lead-in for terse system responses.
+        if (result.equals("Okay.", ignoreCase = true)) {
+            result = "Very good."
+        } else if (result.equals("Done", ignoreCase = true)) {
+            result = "Very good. Done."
+        }
+
+        return result
     }
 
     private fun notification(text: String): Notification {
