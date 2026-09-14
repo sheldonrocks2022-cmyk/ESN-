@@ -6,20 +6,15 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.media.MediaPlayer
 import android.os.Build
 import android.os.IBinder
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import com.example.jarvis.JarvisCommandEngine
-import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.Locale
-import java.util.concurrent.Executors
-import org.json.JSONObject
 
 class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     companion object {
@@ -31,9 +26,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         private const val ACTIVE = "active"
         private const val CODE_101 = "code 101"
         private const val WAKE = "jarvis"
-        private const val FISH_VOICE_ID = "612b878b113047d9a770c069c8b4fdfe"
-        private const val FISH_ENDPOINT = "https://api.fish.audio/v1/tts"
-        private const val FISH_MODEL = "s2.1-pro"
+        private const val DEFAULT_RATE = 0.82f
+        private const val DEFAULT_PITCH = 0.72f
     }
 
     private var recognizer: SpeechRecognizer? = null
@@ -42,8 +36,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var active = false
     private var commandMode = false
     private var restarting = false
-    private var mediaPlayer: MediaPlayer? = null
-    private val voiceExecutor = Executors.newSingleThreadExecutor()
 
     override fun onCreate() {
         super.onCreate()
@@ -61,7 +53,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, true).apply()
         startForeground(NOTIFICATION_ID, notification("Active — say JARVIS"))
         speak("Good evening. JARVIS is online. How may I assist you?")
-        startRecognition()
     }
 
     private fun deactivate() {
@@ -72,8 +63,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         recognizer?.cancel()
         recognizer?.destroy()
         recognizer = null
-        mediaPlayer?.release()
-        mediaPlayer = null
+        fallbackTts?.stop()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -94,7 +84,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 restarting = false
                 val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty().trim()
                 handleSpeech(spoken)
-                restartRecognition()
+                if (!isSpeaking()) restartRecognition()
             }
             override fun onPartialResults(partialResults: android.os.Bundle?) = Unit
             override fun onEvent(eventType: Int, params: android.os.Bundle?) = Unit
@@ -114,7 +104,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun restartRecognition() {
         restarting = false
-        if (active) android.os.Handler(mainLooper).postDelayed({ startRecognition() }, 500)
+        if (active && !isSpeaking()) android.os.Handler(mainLooper).postDelayed({ startRecognition() }, 450)
     }
 
     private fun handleSpeech(spoken: String) {
@@ -122,7 +112,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         val normalized = spoken.lowercase(Locale.getDefault()).replace(Regex("[^a-z0-9 ]"), "").trim()
         if (normalized.contains(CODE_101)) {
             speak("Code 101 acknowledged. I shall stand down.")
-            android.os.Handler(mainLooper).postDelayed({ deactivate() }, 1200)
+            android.os.Handler(mainLooper).postDelayed({ deactivate() }, 1400)
             return
         }
         if (!commandMode) {
@@ -144,79 +134,24 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun speak(text: String) {
         if (text.isBlank()) return
-        val polished = polishForVoice(text)
-        val apiKey = BuildConfig.FISH_AUDIO_API_KEY.trim()
-        if (apiKey.isBlank()) {
-            speakFallback(polished)
-            return
-        }
         recognizer?.cancel()
-        voiceExecutor.execute {
-            try {
-                val audio = requestFishAudio(polished, apiKey)
-                playFishAudio(audio)
-            } catch (_: Exception) {
-                android.os.Handler(mainLooper).post { speakFallback(polished) }
-            }
-        }
-    }
-
-    private fun requestFishAudio(text: String, apiKey: String): ByteArray {
-        val connection = (URL(FISH_ENDPOINT).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 15000
-            readTimeout = 30000
-            doOutput = true
-            setRequestProperty("Authorization", "Bearer $apiKey")
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("model", FISH_MODEL)
-        }
-        val payload = JSONObject().apply {
-            put("text", text)
-            put("reference_id", FISH_VOICE_ID)
-            put("format", "mp3")
-        }.toString()
-        connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
-        val code = connection.responseCode
-        if (code !in 200..299) throw IllegalStateException("Fish Audio HTTP $code")
-        return connection.inputStream.use { it.readBytes() }
-    }
-
-    private fun playFishAudio(audio: ByteArray) {
-        val file = File.createTempFile("jarvis_voice_", ".mp3", cacheDir)
-        file.writeBytes(audio)
-        android.os.Handler(mainLooper).post {
-            try {
-                mediaPlayer?.release()
-                mediaPlayer = MediaPlayer().apply {
-                    setDataSource(file.absolutePath)
-                    setOnCompletionListener {
-                        release()
-                        mediaPlayer = null
-                        file.delete()
-                        if (active) restartRecognition()
-                    }
-                    setOnErrorListener { player, _, _ ->
-                        player.release()
-                        mediaPlayer = null
-                        file.delete()
-                        if (active) restartRecognition()
-                        true
-                    }
-                    prepareAsync()
-                    setOnPreparedListener { it.start() }
-                }
-            } catch (_: Exception) {
-                file.delete()
-                if (active) restartRecognition()
-            }
-        }
+        val polished = polishForVoice(text)
+        speakFallback(polished)
     }
 
     private fun speakFallback(text: String) {
-        if (!fallbackTtsReady) return
+        if (!fallbackTtsReady) {
+            android.os.Handler(mainLooper).postDelayed({ if (active) startRecognition() }, 1000)
+            return
+        }
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val rate = prefs.getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.5f, 1.5f)
+        fallbackTts?.setPitch(DEFAULT_PITCH)
+        fallbackTts?.setSpeechRate(rate)
         fallbackTts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis_${System.currentTimeMillis()}")
     }
+
+    private fun isSpeaking(): Boolean = fallbackTts?.isSpeaking == true
 
     private fun polishForVoice(text: String): String {
         var result = text.trim()
@@ -261,19 +196,26 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             val british = fallbackTts?.setLanguage(Locale.UK)
             fallbackTtsReady = british != TextToSpeech.LANG_MISSING_DATA && british != TextToSpeech.LANG_NOT_SUPPORTED
             if (fallbackTtsReady) {
-                fallbackTts?.setPitch(0.72f)
-                fallbackTts?.setSpeechRate(0.82f)
+                fallbackTts?.setPitch(DEFAULT_PITCH)
+                fallbackTts?.setSpeechRate(getSharedPreferences(PREFS, MODE_PRIVATE).getFloat("speech_rate", DEFAULT_RATE))
+                fallbackTts?.setVoice(
+                    fallbackTts?.voices?.firstOrNull { voice ->
+                        voice.locale.language == "en" && voice.locale.country == "GB" && !voice.isNetworkConnectionRequired
+                    }
+                )
+                fallbackTts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) = Unit
+                    override fun onDone(utteranceId: String?) { android.os.Handler(mainLooper).post { if (active) startRecognition() } }
+                    override fun onError(utteranceId: String?) { android.os.Handler(mainLooper).post { if (active) startRecognition() } }
+                })
             }
         }
     }
 
     override fun onDestroy() {
         recognizer?.destroy()
-        mediaPlayer?.release()
-        mediaPlayer = null
         fallbackTts?.stop()
         fallbackTts?.shutdown()
-        voiceExecutor.shutdownNow()
         super.onDestroy()
     }
 
