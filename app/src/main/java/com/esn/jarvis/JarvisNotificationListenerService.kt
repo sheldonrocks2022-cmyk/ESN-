@@ -51,11 +51,5 @@ class JarvisNotificationListenerService : NotificationListenerService() {
         existing.add(entry)
         while (existing.size > MAX_ITEMS) existing.removeAt(0)
         prefs.edit().putString(KEY_ITEMS, existing.joinToString("\n---\n")).apply()
-
-        sendBroadcast(Intent(ACTION_INCOMING_MESSAGE).apply {
-            setPackage(packageName)
-            putExtra(EXTRA_TITLE, title)
-            putExtra(EXTRA_TEXT, text)
-        })
     }
 }
