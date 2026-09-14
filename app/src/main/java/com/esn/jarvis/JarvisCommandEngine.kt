@@ -10,6 +10,7 @@ object JarvisCommandEngine {
         val command = raw.trim().lowercase()
         if (command.isBlank()) return "I didn't catch that."
         return when {
+            command.contains("code 101") -> "Code 101 is handled by the voice service."
             command.contains("open discord") -> { launchPackage(context, "com.discord"); "Opening Discord." }
             command.contains("open youtube") -> { launchPackage(context, "com.google.android.youtube"); "Opening YouTube." }
             command.startsWith("search youtube for ") -> { val q = raw.substringAfter("search youtube for ").trim(); openUrl(context, "https://www.youtube.com/results?search_query=${Uri.encode(q)}"); "Searching YouTube for $q." }
@@ -19,12 +20,12 @@ object JarvisCommandEngine {
             command.contains("go back") || command == "back" -> if (JarvisAccessibilityService.back()) "Going back." else "Phone access is not enabled."
             command.contains("go home") || command == "home" -> if (JarvisAccessibilityService.home()) "Going home." else "Phone access is not enabled."
             command.contains("show recent apps") || command == "recents" -> if (JarvisAccessibilityService.recents()) "Showing recent apps." else "Phone access is not enabled."
-            command == "scroll down" || command == "scroll down" -> if (JarvisAccessibilityService.scrollForward()) "Scrolling down." else "I couldn't scroll the current screen."
+            command == "scroll down" -> if (JarvisAccessibilityService.scrollForward()) "Scrolling down." else "I couldn't scroll the current screen."
             command == "scroll up" -> if (JarvisAccessibilityService.scrollBackward()) "Scrolling up." else "I couldn't scroll the current screen."
             command.startsWith("click ") -> { val target = raw.substringAfter("click ").trim(); if (JarvisAccessibilityService.clickText(target)) "Clicked $target." else "I couldn't find a clickable $target on the current screen." }
             command.startsWith("type ") -> { val text = raw.substringAfter("type ").trim(); if (JarvisAccessibilityService.typeText(text)) "Text entered." else "I couldn't find an editable field on the current screen." }
-            command.contains("open settings") -> { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)); "Opening settings." }
-            else -> "I can hear you, but I don't have an action for that yet. Try commands like open Discord, click Settings, type hello, scroll down, go back, or go home."
+            command.contains("open settings") -> { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); "Opening settings." }
+            else -> "I can hear you, but I don't have an action for that yet."
         }
     }
 
