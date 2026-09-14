@@ -30,7 +30,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         private const val WAKE = "jarvis"
         private const val DEFAULT_RATE = 0.82f
         private const val DEFAULT_PITCH = 0.72f
-        private const val AUDIO_DUCK_FACTOR = 0.25f
     }
 
     private var recognizer: SpeechRecognizer? = null
@@ -40,6 +39,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var commandMode = false
     private var restarting = false
     private var waitingForSpeechToFinish = false
+    private var pendingSpeech: String? = null
     private var audioManager: AudioManager? = null
 
     override fun onCreate() {
@@ -67,6 +67,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         commandMode = false
         restarting = false
         waitingForSpeechToFinish = false
+        pendingSpeech = null
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, false).apply()
         recognizer?.cancel()
         recognizer?.destroy()
@@ -77,7 +78,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun startRecognition() {
-        if (!active || restarting || waitingForSpeechToFinish || !SpeechRecognizer.isRecognitionAvailable(this)) return
+        if (!active || restarting || waitingForSpeechToFinish || !fallbackTtsReady || !SpeechRecognizer.isRecognitionAvailable(this)) return
         restarting = true
         recognizer?.destroy()
         recognizer = SpeechRecognizer.createSpeechRecognizer(this)
@@ -120,7 +121,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private fun restartRecognition() {
         restarting = false
-        if (active && !waitingForSpeechToFinish) {
+        if (active && !waitingForSpeechToFinish && fallbackTtsReady) {
             android.os.Handler(mainLooper).postDelayed({ startRecognition() }, 600)
         }
     }
@@ -151,27 +152,25 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun speak(text: String) {
-        if (text.isBlank()) return
+        if (text.isBlank() || !active) return
+        val polished = polishForVoice(text)
         waitingForSpeechToFinish = true
         recognizer?.cancel()
         recognizer?.destroy()
         recognizer = null
-        val polished = polishForVoice(text)
-        speakFallback(polished)
+        pendingSpeech = polished
+        if (fallbackTtsReady) {
+            speakFallback(polished)
+        }
     }
 
     private fun speakFallback(text: String) {
-        if (!fallbackTtsReady) {
-            android.os.Handler(mainLooper).postDelayed({ if (active) startRecognition() }, 1000)
-            return
-        }
+        if (!fallbackTtsReady || !active) return
+        pendingSpeech = null
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val rate = prefs.getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.5f, 1.5f)
         fallbackTts?.setPitch(DEFAULT_PITCH)
         fallbackTts?.setSpeechRate(rate)
-        // Prevent the speech recognizer's audio cue from becoming prominent over JARVIS.
-        // Android does not expose a universal API to disable recognizer tones, so we avoid
-        // changing global notification/ringer settings and instead keep JARVIS audio focused.
         fallbackTts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis_${System.currentTimeMillis()}")
     }
 
@@ -216,33 +215,36 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            val british = fallbackTts?.setLanguage(Locale.UK)
-            fallbackTtsReady = british != TextToSpeech.LANG_MISSING_DATA && british != TextToSpeech.LANG_NOT_SUPPORTED
-            if (fallbackTtsReady) {
-                fallbackTts?.setPitch(DEFAULT_PITCH)
-                fallbackTts?.setSpeechRate(getSharedPreferences(PREFS, MODE_PRIVATE).getFloat("speech_rate", DEFAULT_RATE))
-                fallbackTts?.setVoice(
-                    fallbackTts?.voices?.firstOrNull { voice ->
-                        voice.locale.language == "en" && voice.locale.country == "GB" && !voice.isNetworkConnectionRequired
-                    }
-                )
-                fallbackTts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) = Unit
-                    override fun onDone(utteranceId: String?) {
-                        android.os.Handler(mainLooper).post {
-                            waitingForSpeechToFinish = false
-                            if (active) startRecognition()
-                        }
-                    }
-                    override fun onError(utteranceId: String?) {
-                        android.os.Handler(mainLooper).post {
-                            waitingForSpeechToFinish = false
-                            if (active) startRecognition()
-                        }
-                    }
-                })
+        if (status != TextToSpeech.SUCCESS) return
+        val british = fallbackTts?.setLanguage(Locale.UK)
+        fallbackTtsReady = british != TextToSpeech.LANG_MISSING_DATA && british != TextToSpeech.LANG_NOT_SUPPORTED
+        if (!fallbackTtsReady) return
+        fallbackTts?.setPitch(DEFAULT_PITCH)
+        fallbackTts?.setSpeechRate(getSharedPreferences(PREFS, MODE_PRIVATE).getFloat("speech_rate", DEFAULT_RATE))
+        fallbackTts?.voices?.firstOrNull { voice ->
+            voice.locale.language == "en" && voice.locale.country == "GB" && !voice.isNetworkConnectionRequired
+        }?.let { fallbackTts?.setVoice(it) }
+        fallbackTts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) = Unit
+            override fun onDone(utteranceId: String?) {
+                android.os.Handler(mainLooper).post {
+                    waitingForSpeechToFinish = false
+                    if (active) startRecognition()
+                }
             }
+            override fun onError(utteranceId: String?) {
+                android.os.Handler(mainLooper).post {
+                    waitingForSpeechToFinish = false
+                    if (active) startRecognition()
+                }
+            }
+        })
+        val pending = pendingSpeech
+        if (active && !pending.isNullOrBlank()) {
+            speakFallback(pending)
+        } else if (active) {
+            waitingForSpeechToFinish = false
+            startRecognition()
         }
     }
 
