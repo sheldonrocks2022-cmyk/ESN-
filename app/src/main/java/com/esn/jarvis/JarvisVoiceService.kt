@@ -48,6 +48,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var pendingSpeech: String? = null
     private var lastRecognitionStart = 0L
     private var recognitionFailures = 0
+    private var receiverRegistered = false
 
     private val restartRunnable = Runnable {
         recognitionStarting = false
@@ -56,27 +57,33 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
 
     private val incomingMessageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (!active || intent?.action != JarvisNotificationListenerService.ACTION_INCOMING_MESSAGE) return
-            val title = intent.getStringExtra(JarvisNotificationListenerService.EXTRA_TITLE).orEmpty().trim()
-            val text = intent.getStringExtra(JarvisNotificationListenerService.EXTRA_TEXT).orEmpty().trim()
-            if (title.isBlank() || text.isBlank()) return
-            speak("Incoming message from $title. $text")
+            try {
+                if (!active || intent?.action != JarvisNotificationListenerService.ACTION_INCOMING_MESSAGE) return
+                val title = intent.getStringExtra(JarvisNotificationListenerService.EXTRA_TITLE).orEmpty().trim()
+                val text = intent.getStringExtra(JarvisNotificationListenerService.EXTRA_TEXT).orEmpty().trim()
+                if (title.isBlank() || text.isBlank()) return
+                speak("Incoming message from $title. $text")
+            } catch (_: Exception) { }
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        createChannel()
-        val filter = IntentFilter(JarvisNotificationListenerService.ACTION_INCOMING_MESSAGE)
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(incomingMessageReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        else @Suppress("DEPRECATION") registerReceiver(incomingMessageReceiver, filter)
+        try { createChannel() } catch (_: Exception) { }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP -> deactivate()
-            ACTION_START -> activate()
-            else -> stopSelf()
+        try {
+            when (intent?.action) {
+                ACTION_STOP -> deactivate()
+                ACTION_START -> activate()
+                else -> stopSelf()
+            }
+        } catch (e: Exception) {
+            active = false
+            commandMode = false
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, false).apply()
+            try { stopSelf() } catch (_: Exception) { }
         }
         return START_NOT_STICKY
     }
@@ -107,13 +114,19 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 @Suppress("DEPRECATION")
                 startForeground(NOTIFICATION_ID, notification)
             }
-        } catch (_: SecurityException) {
-            failActivation()
-            return
-        } catch (_: IllegalArgumentException) {
+        } catch (_: Exception) {
             failActivation()
             return
         }
+
+        try {
+            if (!receiverRegistered) {
+                val filter = IntentFilter(JarvisNotificationListenerService.ACTION_INCOMING_MESSAGE)
+                if (Build.VERSION.SDK_INT >= 33) registerReceiver(incomingMessageReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                else @Suppress("DEPRECATION") registerReceiver(incomingMessageReceiver, filter)
+                receiverRegistered = true
+            }
+        } catch (_: Exception) { }
 
         try {
             fallbackTts = TextToSpeech(this, this)
@@ -133,7 +146,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         active = false
         commandMode = false
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, false).apply()
-        stopSelf()
+        try { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+        try { stopSelf() } catch (_: Exception) { }
     }
 
     private fun deactivate() {
@@ -145,11 +159,11 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         recognitionFailures = 0
         handler.removeCallbacks(restartRunnable)
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, false).apply()
-        recognizer?.cancel()
-        recognizer?.destroy()
+        try { recognizer?.cancel() } catch (_: Exception) { }
+        try { recognizer?.destroy() } catch (_: Exception) { }
         recognizer = null
-        fallbackTts?.stop()
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        try { fallbackTts?.stop() } catch (_: Exception) { }
+        try { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
         stopSelf()
     }
 
@@ -160,49 +174,53 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         lastRecognitionStart = now
         recognitionStarting = true
 
-        recognizer?.cancel()
-        recognizer?.destroy()
-        recognizer = SpeechRecognizer.createSpeechRecognizer(this)
-        recognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { recognitionStarting = false; recognitionFailures = 0 }
-            override fun onBeginningOfSpeech() = Unit
-            override fun onRmsChanged(rmsdB: Float) = Unit
-            override fun onBufferReceived(buffer: ByteArray?) = Unit
-            override fun onEndOfSpeech() = Unit
-            override fun onError(error: Int) {
-                recognitionStarting = false
-                if (!active || waitingForSpeechToFinish) return
-                recognitionFailures = (recognitionFailures + 1).coerceAtMost(8)
-                val delay = when (error) {
-                    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 1800L
-                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER -> 3000L
-                    else -> (1800L + recognitionFailures * 400L).coerceAtMost(5000L)
+        try {
+            recognizer?.cancel()
+            recognizer?.destroy()
+            recognizer = SpeechRecognizer.createSpeechRecognizer(this)
+            recognizer?.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) { recognitionStarting = false; recognitionFailures = 0 }
+                override fun onBeginningOfSpeech() = Unit
+                override fun onRmsChanged(rmsdB: Float) = Unit
+                override fun onBufferReceived(buffer: ByteArray?) = Unit
+                override fun onEndOfSpeech() = Unit
+                override fun onError(error: Int) {
+                    recognitionStarting = false
+                    if (!active || waitingForSpeechToFinish) return
+                    recognitionFailures = (recognitionFailures + 1).coerceAtMost(8)
+                    val delay = when (error) {
+                        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 1800L
+                        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER -> 3000L
+                        else -> (1800L + recognitionFailures * 400L).coerceAtMost(5000L)
+                    }
+                    scheduleRecognition(delay)
                 }
-                scheduleRecognition(delay)
-            }
-            override fun onResults(results: Bundle?) {
-                recognitionStarting = false
-                recognitionFailures = 0
-                val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
-                if (spoken.isBlank()) { scheduleRecognition(1200L); return }
-                handleSpeech(spoken)
-            }
-            override fun onPartialResults(partialResults: Bundle?) = Unit
-            override fun onEvent(eventType: Int, params: Bundle?) = Unit
-        })
+                override fun onResults(results: Bundle?) {
+                    recognitionStarting = false
+                    recognitionFailures = 0
+                    val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
+                    if (spoken.isBlank()) { scheduleRecognition(1200L); return }
+                    handleSpeech(spoken)
+                }
+                override fun onPartialResults(partialResults: Bundle?) = Unit
+                override fun onEvent(eventType: Int, params: Bundle?) = Unit
+            })
 
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.US.toLanguageTag())
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, Locale.US.toLanguageTag())
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1200)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 300)
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.US.toLanguageTag())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, Locale.US.toLanguageTag())
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1200)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 300)
+            }
+            recognizer?.startListening(intent)
+        } catch (_: Exception) {
+            recognitionStarting = false
+            scheduleRecognition(3000L)
         }
-        try { recognizer?.startListening(intent) }
-        catch (_: Exception) { recognitionStarting = false; scheduleRecognition(3000L) }
     }
 
     private fun scheduleRecognition(delay: Long) {
@@ -237,8 +255,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         waitingForSpeechToFinish = true
         handler.removeCallbacks(restartRunnable)
         recognitionStarting = false
-        recognizer?.cancel()
-        recognizer?.destroy()
+        try { recognizer?.cancel() } catch (_: Exception) { }
+        try { recognizer?.destroy() } catch (_: Exception) { }
         recognizer = null
         pendingSpeech = polished
         if (fallbackTtsReady) speakFallback(polished)
@@ -249,9 +267,14 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         if (!fallbackTtsReady || !active) return
         pendingSpeech = null
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        fallbackTts?.setPitch(DEFAULT_PITCH)
-        fallbackTts?.setSpeechRate(prefs.getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.60f, 1.15f))
-        fallbackTts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis_${System.currentTimeMillis()}")
+        try {
+            fallbackTts?.setPitch(DEFAULT_PITCH)
+            fallbackTts?.setSpeechRate(prefs.getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.60f, 1.15f))
+            fallbackTts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis_${System.currentTimeMillis()}")
+        } catch (_: Exception) {
+            waitingForSpeechToFinish = false
+            scheduleRecognition(1000L)
+        }
     }
 
     private fun polishForVoice(text: String): String {
@@ -289,55 +312,65 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onInit(status: Int) {
-        if (status != TextToSpeech.SUCCESS) {
+        try {
+            if (status != TextToSpeech.SUCCESS) {
+                fallbackTtsReady = false
+                pendingSpeech = null
+                waitingForSpeechToFinish = false
+                if (active) scheduleRecognition(500L)
+                return
+            }
+            val english = fallbackTts?.setLanguage(Locale.US)
+            fallbackTtsReady = english != TextToSpeech.LANG_MISSING_DATA && english != TextToSpeech.LANG_NOT_SUPPORTED
+            if (!fallbackTtsReady) {
+                pendingSpeech = null
+                waitingForSpeechToFinish = false
+                if (active) scheduleRecognition(500L)
+                return
+            }
+            val bestVoice = fallbackTts?.voices.orEmpty().asSequence()
+                .filter { it.locale.language == "en" && !it.isNetworkConnectionRequired }
+                .sortedWith(compareByDescending<Voice> { voice ->
+                    val n = voice.name.lowercase(Locale.US)
+                    when {
+                        (n.contains("en-gb") || n.contains("en_uk")) && (n.contains("male") || n.contains("rjs") || n.contains("rjc")) -> 110
+                        n.contains("en-gb") || n.contains("en_uk") -> 100
+                        (n.contains("en-us") || n.contains("en_us")) && (n.contains("male") || n.contains("rjs") || n.contains("rjc")) -> 95
+                        n.contains("en-us") || n.contains("en_us") -> 85
+                        n.contains("en-au") && (n.contains("male") || n.contains("rjs") || n.contains("rjc")) -> 80
+                        n.contains("en-au") -> 75
+                        else -> 50
+                    }
+                }.thenByDescending { it.quality }.thenBy { it.latency }).firstOrNull()
+            if (bestVoice != null) fallbackTts?.voice = bestVoice
+            fallbackTts?.setPitch(DEFAULT_PITCH)
+            fallbackTts?.setSpeechRate(getSharedPreferences(PREFS, MODE_PRIVATE).getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.60f, 1.15f))
+            fallbackTts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) = Unit
+                override fun onDone(utteranceId: String?) { handler.post { waitingForSpeechToFinish = false; if (active) scheduleRecognition(500L) } }
+                override fun onError(utteranceId: String?) { handler.post { waitingForSpeechToFinish = false; if (active) scheduleRecognition(1000L) } }
+            })
+            val pending = pendingSpeech
+            if (active && !pending.isNullOrBlank()) speakFallback(pending)
+            else if (active && !waitingForSpeechToFinish) scheduleRecognition(500L)
+        } catch (_: Exception) {
             fallbackTtsReady = false
             pendingSpeech = null
             waitingForSpeechToFinish = false
-            if (active) scheduleRecognition(500L)
-            return
+            if (active) scheduleRecognition(1000L)
         }
-        val english = fallbackTts?.setLanguage(Locale.US)
-        fallbackTtsReady = english != TextToSpeech.LANG_MISSING_DATA && english != TextToSpeech.LANG_NOT_SUPPORTED
-        if (!fallbackTtsReady) {
-            pendingSpeech = null
-            waitingForSpeechToFinish = false
-            if (active) scheduleRecognition(500L)
-            return
-        }
-        val bestVoice = fallbackTts?.voices.orEmpty().asSequence()
-            .filter { it.locale.language == "en" && !it.isNetworkConnectionRequired }
-            .sortedWith(compareByDescending<Voice> { voice ->
-                val n = voice.name.lowercase(Locale.US)
-                when {
-                    (n.contains("en-gb") || n.contains("en_uk")) && (n.contains("male") || n.contains("rjs") || n.contains("rjc")) -> 110
-                    n.contains("en-gb") || n.contains("en_uk") -> 100
-                    (n.contains("en-us") || n.contains("en_us")) && (n.contains("male") || n.contains("rjs") || n.contains("rjc")) -> 95
-                    n.contains("en-us") || n.contains("en_us") -> 85
-                    n.contains("en-au") && (n.contains("male") || n.contains("rjs") || n.contains("rjc")) -> 80
-                    n.contains("en-au") -> 75
-                    else -> 50
-                }
-            }.thenByDescending { it.quality }.thenBy { it.latency }).firstOrNull()
-        if (bestVoice != null) fallbackTts?.voice = bestVoice
-        fallbackTts?.setPitch(DEFAULT_PITCH)
-        fallbackTts?.setSpeechRate(getSharedPreferences(PREFS, MODE_PRIVATE).getFloat("speech_rate", DEFAULT_RATE).coerceIn(0.60f, 1.15f))
-        fallbackTts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) = Unit
-            override fun onDone(utteranceId: String?) { handler.post { waitingForSpeechToFinish = false; if (active) scheduleRecognition(500L) } }
-            override fun onError(utteranceId: String?) { handler.post { waitingForSpeechToFinish = false; if (active) scheduleRecognition(1000L) } }
-        })
-        val pending = pendingSpeech
-        if (active && !pending.isNullOrBlank()) speakFallback(pending)
-        else if (active && !waitingForSpeechToFinish) scheduleRecognition(500L)
     }
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
-        try { unregisterReceiver(incomingMessageReceiver) } catch (_: Exception) { }
-        recognizer?.cancel()
-        recognizer?.destroy()
-        fallbackTts?.stop()
-        fallbackTts?.shutdown()
+        if (receiverRegistered) {
+            try { unregisterReceiver(incomingMessageReceiver) } catch (_: Exception) { }
+            receiverRegistered = false
+        }
+        try { recognizer?.cancel() } catch (_: Exception) { }
+        try { recognizer?.destroy() } catch (_: Exception) { }
+        try { fallbackTts?.stop() } catch (_: Exception) { }
+        try { fallbackTts?.shutdown() } catch (_: Exception) { }
         super.onDestroy()
     }
 
