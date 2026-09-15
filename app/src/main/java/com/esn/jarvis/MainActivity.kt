@@ -164,7 +164,14 @@ class MainActivity : ComponentActivity() {
         val action = if (activating) JarvisVoiceService.ACTION_START else JarvisVoiceService.ACTION_STOP
         val intent = Intent(this, JarvisVoiceService::class.java).setAction(action)
         try {
-            if (activating) startForegroundService(intent) else startService(intent)
+            if (activating) {
+                // The activity is visible here, so start the service directly and let the
+                // service promote itself to the microphone foreground service. This avoids
+                // a second FGS launch path while preserving the required microphone type.
+                startService(intent)
+            } else {
+                startService(intent)
+            }
             active = activating
             message = if (activating) "JARVIS is listening. Awaiting your command." else "JARVIS is offline."
             commandHistory.add("${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())}  •  VOICE LINK  →  ${if (activating) "ACTIVATED" else "DEACTIVATED"}")
