@@ -15,7 +15,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,6 +52,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
     private var message by mutableStateOf("Systems ready. Awaiting activation.")
     private var batteryText by mutableStateOf("Battery: checking…")
     private var clockText by mutableStateOf("")
+    private var lastCrash by mutableStateOf("")
     private val commandHistory = mutableStateListOf<String>()
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -72,10 +74,27 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installCrashDiagnostics()
         super.onCreate(savedInstanceState)
+        lastCrash = getSharedPreferences("jarvis", MODE_PRIVATE).getString("last_crash", "").orEmpty()
         requestPermissionsIfNeeded()
         refreshStatus()
         setContent { JarvisScreen() }
+    }
+
+    private fun installCrashDiagnostics() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val stack = StringWriter()
+                throwable.printStackTrace(PrintWriter(stack))
+                getSharedPreferences("jarvis", MODE_PRIVATE).edit()
+                    .putString("last_crash", "Thread: ${thread.name}\n${stack}")
+                    .putLong("last_crash_time", System.currentTimeMillis())
+                    .apply()
+            } catch (_: Exception) { }
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
     }
 
     override fun onResume() {
@@ -116,6 +135,21 @@ class MainActivity : ComponentActivity() {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (active) "LISTENING" else "JARVIS", color = Color(0xFF7DEFF2), fontSize = 18.sp); Text(if (active) "VOICE LINK ACTIVE" else "CORE STANDBY", color = Color(0xFF7891AA), fontSize = 9.sp, modifier = Modifier.alpha(0.9f)) }
                     }
                     Text(message, color = Color(0xFFD6E2F0), fontSize = 14.sp, modifier = Modifier.padding(horizontal = 12.dp)); Spacer(Modifier.height(12.dp))
+                    if (lastCrash.isNotBlank()) {
+                        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF241017)), shape = RoundedCornerShape(16.dp)) {
+                            Column(Modifier.padding(15.dp)) {
+                                Text("LAST CRASH CAPTURED", color = Color(0xFFFFB4AB), fontSize = 12.sp)
+                                Spacer(Modifier.height(6.dp))
+                                Text(lastCrash.take(3500), color = Color(0xFFE6D8D8), fontSize = 10.sp)
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedButton(onClick = {
+                                    getSharedPreferences("jarvis", MODE_PRIVATE).edit().remove("last_crash").remove("last_crash_time").apply()
+                                    lastCrash = ""
+                                }, modifier = Modifier.fillMaxWidth()) { Text("CLEAR CRASH REPORT", color = Color(0xFFFFB4AB)) }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
                     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF071A2B)), shape = RoundedCornerShape(16.dp)) {
                         Column(Modifier.padding(15.dp)) {
                             Text("SYSTEM TELEMETRY", color = Color(0xFF42E8F4), fontSize = 12.sp); Spacer(Modifier.height(8.dp))
@@ -165,9 +199,6 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(this, JarvisVoiceService::class.java).setAction(action)
         try {
             if (activating) {
-                // The activity is visible here, so start the service directly and let the
-                // service promote itself to the microphone foreground service. This avoids
-                // a second FGS launch path while preserving the required microphone type.
                 startService(intent)
             } else {
                 startService(intent)
