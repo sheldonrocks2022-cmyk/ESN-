@@ -8,6 +8,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -71,8 +73,12 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) deactivate() else activate()
-        return START_STICKY
+        when (intent?.action) {
+            ACTION_STOP -> deactivate()
+            ACTION_START -> activate()
+            else -> stopSelf()
+        }
+        return START_NOT_STICKY
     }
 
     private fun activate() {
@@ -81,11 +87,44 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             if (!waitingForSpeechToFinish) startRecognition()
             return
         }
+
+        // Android 14+ requires RECORD_AUDIO before a microphone foreground service
+        // can be created. Refuse safely instead of allowing a SecurityException to
+        // terminate the application process.
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, false).apply()
+            stopSelf()
+            return
+        }
+
+        try {
+            startForeground(
+                NOTIFICATION_ID,
+                notification("JARVIS active — listening"),
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                } else {
+                    0
+                }
+            )
+        } catch (_: SecurityException) {
+            active = false
+            commandMode = false
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, false).apply()
+            stopSelf()
+            return
+        } catch (_: IllegalArgumentException) {
+            active = false
+            commandMode = false
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, false).apply()
+            stopSelf()
+            return
+        }
+
         active = true
         commandMode = true
         recognitionFailures = 0
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(ACTIVE, true).apply()
-        startForeground(NOTIFICATION_ID, notification("JARVIS active — listening"))
         speak("JARVIS online.")
     }
 
@@ -107,8 +146,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun startRecognition() {
-        // Speech recognition must not depend on TTS initialization. If TTS fails or is
-        // still loading, JARVIS must still be able to hear commands and execute them.
         if (!active || waitingForSpeechToFinish || recognitionStarting || !SpeechRecognizer.isRecognitionAvailable(this)) return
         val now = System.currentTimeMillis()
         if (now - lastRecognitionStart < 900L) return
@@ -132,11 +169,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 if (!active || waitingForSpeechToFinish) return
                 recognitionFailures = (recognitionFailures + 1).coerceAtMost(8)
                 val delay = when (error) {
-                    SpeechRecognizer.ERROR_NO_MATCH,
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 1800L
-                    SpeechRecognizer.ERROR_NETWORK,
-                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
-                    SpeechRecognizer.ERROR_SERVER -> 3000L
+                    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 1800L
+                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER -> 3000L
                     else -> (1800L + recognitionFailures * 400L).coerceAtMost(5000L)
                 }
                 scheduleRecognition(delay)
@@ -229,7 +263,6 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         pendingSpeech = polished
         if (fallbackTtsReady) speakFallback(polished)
         else {
-            // TTS is unavailable/not initialized. Do not leave the command system stuck.
             pendingSpeech = null
             waitingForSpeechToFinish = false
             scheduleRecognition(500L)
