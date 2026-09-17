@@ -30,10 +30,11 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var pendingSpeech:String?=null
     private var active=false
     private var starting=false
+    private var standby=false
 
     override fun onCreate(){super.onCreate();checkpoint("SERVICE_CREATE");try{createChannel()}catch(t:Throwable){checkpoint("CHANNEL_EXCEPTION:${t.javaClass.simpleName}:${t.message.orEmpty()}")}}
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{checkpoint("SERVICE_START");when(intent?.action){ACTION_START->activate();ACTION_STOP->deactivate();else->stopSelf()};return START_NOT_STICKY}
-    private fun activate(){if(active){startRecognition();return};if(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){checkpoint("MIC_PERMISSION_MISSING");setActive(false);stopSelf();return};checkpoint("MIC_PERMISSION_OK");try{checkpoint("FGS_BEFORE");val n=notification("JARVIS active — listening");if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q)ServiceCompat.startForeground(this,NOTIFICATION_ID,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)else startForeground(NOTIFICATION_ID,n);checkpoint("FGS_AFTER")}catch(t:Throwable){checkpoint("FGS_EXCEPTION:${t.javaClass.simpleName}:${t.message.orEmpty()}");setActive(false);stopSelf();return};active=true;setActive(true);initTts();checkpoint("RECOGNIZER_START");startRecognition()}
+    private fun activate(){if(active){startRecognition();return};if(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){checkpoint("MIC_PERMISSION_MISSING");setActive(false);stopSelf();return};checkpoint("MIC_PERMISSION_OK");try{checkpoint("FGS_BEFORE");val n=notification("JARVIS active — listening");if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q)ServiceCompat.startForeground(this,NOTIFICATION_ID,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)else startForeground(NOTIFICATION_ID,n);checkpoint("FGS_AFTER")}catch(t:Throwable){checkpoint("FGS_EXCEPTION:${t.javaClass.simpleName}:${t.message.orEmpty()}");setActive(false);stopSelf();return};active=true;standby=getSharedPreferences(PREFS,MODE_PRIVATE).getBoolean("standby",false);setActive(true);initTts();checkpoint(if(standby)"STANDBY" else "RECOGNIZER_START");startRecognition()}
     private fun initTts(){if(tts!=null)return;try{checkpoint("TTS_CREATE_BEFORE");tts=TextToSpeech(this,this);checkpoint("TTS_CREATE_AFTER")}catch(t:Throwable){checkpoint("TTS_EXCEPTION:${t.javaClass.simpleName}:${t.message.orEmpty()}");tts=null;ttsReady=false}}
     override fun onInit(status:Int){checkpoint("TTS_INIT:$status");if(status==TextToSpeech.SUCCESS){try{configureVoice();tts?.setOnUtteranceProgressListener(object:UtteranceProgressListener(){override fun onStart(id:String){checkpoint("SPEAKING")};override fun onDone(id:String){checkpoint("SPEAK_DONE");handler.postDelayed({if(active)startRecognition()},250L)};@Deprecated("Deprecated in Java") override fun onError(id:String){checkpoint("SPEAK_ERROR");handler.postDelayed({if(active)startRecognition()},700L)}});ttsReady=true;checkpoint("TTS_READY:${tts?.voice?.name.orEmpty()}");pendingSpeech?.let{pendingSpeech=null;speak(it)}}catch(t:Throwable){checkpoint("TTS_SETUP_EXCEPTION:${t.javaClass.simpleName}:${t.message.orEmpty()}")}}}
     private fun configureVoice(){val engine=tts?:return;engine.language=Locale.US;val preferred=chooseCalmEnglishVoice(engine.voices);if(preferred!=null){engine.voice=preferred;checkpoint("TTS_VOICE:${preferred.name}")};val prefs=getSharedPreferences(PREFS,MODE_PRIVATE);engine.setSpeechRate(prefs.getFloat("speech_rate",0.76f));engine.setPitch(prefs.getFloat("speech_pitch",0.68f))}
@@ -46,9 +47,19 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         checkpoint("HEARD:${spoken.take(80)}")
         getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_heard",spoken).apply()
         if(normalized=="jarvis code 101"||normalized=="jarvis code one oh one"||normalized=="jarvis code one zero one"){
-            checkpoint("CODE_101")
-            speak("Code 101 acknowledged. Going offline.")
-            handler.postDelayed({deactivate()},2200L)
+            standby=true
+            checkpoint("STANDBY")
+            getSharedPreferences(PREFS,MODE_PRIVATE).edit().putBoolean("standby",true).apply()
+            speak("Code 101 acknowledged. Standing by.")
+            return
+        }
+        if(standby){
+            if(normalized=="jarvis start up"||normalized=="jarvis startup"||normalized=="jarvis start"){
+                standby=false
+                getSharedPreferences(PREFS,MODE_PRIVATE).edit().putBoolean("standby",false).apply()
+                checkpoint("STARTUP")
+                speak("JARVIS online. All systems ready.")
+            }else handler.postDelayed({if(active)startRecognition()},250L)
             return
         }
         if(command.isBlank()){speak("Yes?");return}
