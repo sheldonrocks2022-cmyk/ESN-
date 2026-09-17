@@ -9,6 +9,8 @@ object JarvisNaturalCommandRouter {
     fun execute(context: Context, raw: String): String? {
         val text = normalize(raw)
         if (text.isBlank()) return "I didn't catch that."
+        val alias=JarvisAliases.resolve(context,text)
+        if(alias.isNotBlank()) return execute(context,alias)
         val parts = text.split(Regex("\\s+(?:and then|then)\\s+")).map { it.trim() }.filter { it.isNotBlank() }
         if (parts.size in 2..6) return parts.joinToString(" ") { executePart(context,it) }
         return executeSingle(context,text) ?: if (looksConversational(text)) JarvisBrain.respond(context, raw) else null
@@ -27,6 +29,11 @@ object JarvisNaturalCommandRouter {
         text.contains("what do you remember")
 
     private fun executeSingle(context: Context, text: String): String? = when {
+        text.startsWith("create alias ") && text.contains(" for ") -> { val name=text.substringAfter("create alias ").substringBefore(" for ").trim(); val command=text.substringAfter(" for ").trim(); JarvisAliases.save(context,name,command) }
+        text == "list aliases" || text == "what are my aliases" -> JarvisAliases.list(context)
+        text.startsWith("delete alias ") -> JarvisAliases.delete(context,text.removePrefix("delete alias ").trim())
+        text == "clear aliases" -> JarvisAliases.clear(context)
+        text == "clear local context" || text == "forget recent context" -> { JarvisContext.clear(context); "Recent local context cleared." }
         text.startsWith("when i say ") && text.contains(" do ") -> saveRoutine(context,text)
         text.startsWith("create routine ") && text.contains(" to ") -> saveNamedRoutine(context,text)
         text == "list routines" || text == "what are my routines" -> listRoutines(context)
