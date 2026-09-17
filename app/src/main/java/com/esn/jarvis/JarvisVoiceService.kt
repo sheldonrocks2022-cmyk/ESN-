@@ -40,7 +40,29 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private fun chooseCalmEnglishVoice(voices:Set<Voice>?):Voice?{if(voices.isNullOrEmpty())return null;val english=voices.filter{it.locale?.language==Locale.ENGLISH.language&&!it.isNetworkConnectionRequired};if(english.isEmpty())return null;fun score(v:Voice):Int{val n=v.name.lowercase(Locale.US);var s=0;if(v.locale==Locale.US)s+=30;if(!v.isNetworkConnectionRequired)s+=20;if(n.contains("male")||n.contains("masculine"))s+=120;if(n.contains("low")||n.contains("deep"))s+=35;if(n.contains("en-us"))s+=15;if(n.contains("local"))s+=10;return s};return english.maxByOrNull(::score)}
     private fun speak(text:String){if(text.isBlank())return;if(!ttsReady){pendingSpeech=text;initTts();return};try{starting=false;recognizer?.cancel();checkpoint("SPEAK:${text.take(100)}");tts?.speak(text,TextToSpeech.QUEUE_FLUSH,null,"jarvis-${System.currentTimeMillis()}")}catch(t:Throwable){checkpoint("SPEAK_EXCEPTION:${t.javaClass.simpleName}:${t.message.orEmpty()}");if(active)handler.postDelayed({startRecognition()},900L)}}
     private fun startRecognition(){if(!active||starting)return;if(!SpeechRecognizer.isRecognitionAvailable(this)){checkpoint("RECOGNIZER_UNAVAILABLE");return};starting=true;try{recognizer?.cancel();recognizer?.destroy();recognizer=SpeechRecognizer.createSpeechRecognizer(this);recognizer?.setRecognitionListener(object:RecognitionListener{override fun onReadyForSpeech(params:Bundle?){starting=false;checkpoint("LISTENING")};override fun onBeginningOfSpeech()=Unit;override fun onRmsChanged(rmsdB:Float)=Unit;override fun onBufferReceived(buffer:ByteArray?)=Unit;override fun onEndOfSpeech()=Unit;override fun onError(error:Int){starting=false;checkpoint("RECOGNIZER_ERROR:$error");if(active)handler.postDelayed({startRecognition()},1500L)};override fun onResults(results:Bundle?){starting=false;val spoken=results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty();if(spoken.isNotBlank())handleSpeech(spoken);else if(active)handler.postDelayed({startRecognition()},700L)};override fun onPartialResults(partialResults:Bundle?)=Unit;override fun onEvent(eventType:Int,params:Bundle?)=Unit});val speechIntent=Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply{putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.US.toLanguageTag());putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,false);putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,5)};recognizer?.startListening(speechIntent)}catch(t:Throwable){starting=false;checkpoint("RECOGNIZER_EXCEPTION:${t.javaClass.simpleName}:${t.message.orEmpty()}");if(active)handler.postDelayed({startRecognition()},2000L)}}
-    private fun handleSpeech(spoken:String){val command=spoken.lowercase(Locale.US).replace(Regex("[^a-z0-9' ]"),"").trim().removePrefix("jarvis").trim();checkpoint("HEARD:${spoken.take(80)}");getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_heard",spoken).apply();if(command.isBlank()){speak("Yes?");return};try{checkpoint("COMMAND:${command.take(80)}");val result=if(JarvisMessaging.canHandle(command))JarvisMessaging.execute(this,command)else JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command);getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_command",command).putString("last_result",result).apply();checkpoint("RESULT:${result.take(100)}");speak(result)}catch(t:Throwable){checkpoint("COMMAND_EXCEPTION:${t.javaClass.simpleName}:${t.message.orEmpty()}");speak("I couldn't complete that command.")}}
+    private fun handleSpeech(spoken:String){
+        val normalized=spoken.lowercase(Locale.US).replace(Regex("[^a-z0-9' ]"),"").trim()
+        val command=normalized.removePrefix("jarvis").trim()
+        checkpoint("HEARD:${spoken.take(80)}")
+        getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_heard",spoken).apply()
+        if(normalized=="jarvis code 101"||normalized=="jarvis code one oh one"||normalized=="jarvis code one zero one"){
+            checkpoint("CODE_101")
+            speak("Code 101 acknowledged. Going offline.")
+            handler.postDelayed({deactivate()},2200L)
+            return
+        }
+        if(command.isBlank()){speak("Yes?");return}
+        try{
+            checkpoint("COMMAND:${command.take(80)}")
+            val result=if(JarvisMessaging.canHandle(command))JarvisMessaging.execute(this,command)else JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command)
+            getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_command",command).putString("last_result",result).apply()
+            checkpoint("RESULT:${result.take(100)}")
+            speak(result)
+        }catch(t:Throwable){
+            checkpoint("COMMAND_EXCEPTION:${t.javaClass.simpleName}:${t.message.orEmpty()}")
+            speak("I couldn't complete that command.")
+        }
+    }
     private fun deactivate(){active=false;starting=false;handler.removeCallbacksAndMessages(null);try{recognizer?.cancel();recognizer?.destroy()}catch(_:Throwable){};recognizer=null;try{tts?.stop();tts?.shutdown()}catch(_:Throwable){};tts=null;ttsReady=false;setActive(false);checkpoint("STOP_COMPLETE");try{ServiceCompat.stopForeground(this,ServiceCompat.STOP_FOREGROUND_REMOVE)}catch(_:Throwable){};stopSelf()}
     private fun setActive(value:Boolean){getSharedPreferences(PREFS,MODE_PRIVATE).edit().putBoolean(ACTIVE,value).commit()}
     private fun checkpoint(stage:String){getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("service_stage",stage).putLong("service_stage_time",System.currentTimeMillis()).commit()}
