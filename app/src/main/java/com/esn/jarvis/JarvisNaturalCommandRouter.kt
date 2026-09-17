@@ -31,7 +31,8 @@ object JarvisNaturalCommandRouter {
         text.contains("any new messages") || text.contains("what did i miss") || text.contains("any new texts") || text.contains("unread messages") -> JarvisNotificationListenerService.readLatestMessages(context)
         text.contains("read my notifications") || text.contains("show me my notifications") -> JarvisNotificationListenerService.readLatestMessages(context)
         text.contains("notification access") || text.contains("let you read my notifications") || text.contains("enable notification access") -> JarvisNotificationListenerService.notificationAccessSettings(context)
-        text.startsWith("reply ") || text.startsWith("reply that ") -> prepareReply(text)
+        text.startsWith("reply ") || text.startsWith("reply that ") -> replyNotification(text)
+        text == "dismiss that notification" || text == "dismiss latest notification" || text == "clear that notification" -> JarvisNotificationListenerService.dismissLatest()
         text == "go to settings" || text == "take me to settings" -> open(context, Settings.ACTION_SETTINGS, "Settings opened.")
         text == "go home" || text == "take me home" -> if (JarvisAccessibilityService.home()) "Going home." else "Phone Access is not enabled."
         text == "go back" || text == "take me back" -> if (JarvisAccessibilityService.back()) "Going back." else "Phone Access is not enabled."
@@ -46,7 +47,7 @@ object JarvisNaturalCommandRouter {
     }
 
     private fun normalize(raw:String)=raw.lowercase(Locale.US).replace(Regex("[^a-z0-9%' ]")," ").replace(Regex("\\s+")," ").trim()
-    private fun prepareReply(raw:String):String{val reply=raw.replaceFirst(Regex("(?i)^reply( that)?\\s*"),"").trim();if(reply.isBlank())return "Tell me what you want me to reply.";if(!JarvisAccessibilityService.clickText("Reply")&&!JarvisAccessibilityService.clickText("reply"))return "I couldn't find a Reply control. Phone Access may need to be enabled.";return if(JarvisAccessibilityService.typeText(reply))"Reply drafted. Review it before sending." else "I opened Reply, but I couldn't enter the text."}
+    private fun replyNotification(raw:String):String{val reply=raw.replaceFirst(Regex("(?i)^reply( that)?\\s*"),"").trim();return JarvisNotificationListenerService.replyLatest(reply)}
     private fun setSpeechRate(context:Context,delta:Float,response:String):String{val prefs=context.getSharedPreferences("jarvis",Context.MODE_PRIVATE);prefs.edit().putFloat("speech_rate",(prefs.getFloat("speech_rate",0.76f)+delta).coerceIn(0.60f,1.05f)).apply();return response}
     private fun morningBriefing(context:Context):String="Good morning. ${JarvisNotificationListenerService.readLatestMessages(context)} ${JarvisCommandEngine.execute(context,"battery status")}"
     private fun bedtime(context:Context):String=try{context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));"Bedtime mode ready. Sound settings opened for your confirmation."}catch(_:Exception){"I couldn't open the sound settings."}
