@@ -19,6 +19,8 @@ class JarvisAccessibilityService : AccessibilityService() {
         fun quickSettings() = instance?.performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS) == true
         fun scrollForward() = instance?.scrollInternal(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) == true
         fun scrollBackward() = instance?.scrollInternal(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) == true
+        fun focusText(text:String)=instance?.focusTextInternal(text)==true
+        fun hasAccess()=instance!=null
     }
     override fun onServiceConnected() { super.onServiceConnected(); instance = this }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
@@ -34,6 +36,7 @@ class JarvisAccessibilityService : AccessibilityService() {
         }
         return false
     }
+    private fun focusTextInternal(text:String):Boolean{val root=rootInActiveWindow?:return false;for(node in root.findAccessibilityNodeInfosByText(text)){if(node.isFocusable&&node.isEnabled)return node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)};return false}
     private fun typeTextInternal(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
         val editable = findEditable(root) ?: return false
