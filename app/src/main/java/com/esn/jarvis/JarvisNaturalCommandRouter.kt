@@ -10,8 +10,14 @@ object JarvisNaturalCommandRouter {
         val text = normalize(raw)
         if (text.isBlank()) return "I didn't catch that."
         val parts = text.split(Regex("\\s+(?:and then|then)\\s+")).map { it.trim() }.filter { it.isNotBlank() }
-        if (parts.size in 2..4) return parts.joinToString(" ") { executeSingle(context,it) ?: JarvisCommandEngine.execute(context,it) }
+        if (parts.size in 2..6) return parts.joinToString(" ") { executePart(context,it) }
         return executeSingle(context,text) ?: if (looksConversational(text)) JarvisBrain.respond(context, raw) else null
+    }
+
+    private fun executePart(context:Context,text:String):String {
+        val alias=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).getString(text,"").orEmpty()
+        if(alias.isNotBlank()) return alias.split(" then ").filter{it.isNotBlank()}.joinToString(" ") { executePart(context,it.trim()) }
+        return if(JarvisMessaging.canHandle(text)) JarvisMessaging.execute(context,text) else executeSingle(context,text) ?: JarvisCommandEngine.execute(context,text)
     }
 
     private fun looksConversational(text:String):Boolean =
@@ -21,6 +27,10 @@ object JarvisNaturalCommandRouter {
         text.contains("what do you remember")
 
     private fun executeSingle(context: Context, text: String): String? = when {
+        text.startsWith("when i say ") && text.contains(" do ") -> saveRoutine(context,text)
+        text.startsWith("create routine ") && text.contains(" to ") -> saveNamedRoutine(context,text)
+        text == "list routines" || text == "what are my routines" -> listRoutines(context)
+        text.startsWith("delete routine ") -> deleteRoutine(context,text.removePrefix("delete routine ").trim())
         text == "help" || text == "what can you do" || text == "what can i say" -> "I can open apps, send messages, control supported phone functions, read notifications, inspect your screen, run routines, chain commands, and maintain recent conversation context."
         text == "are you there" || text == "you there" || text == "hello" || text == "hey" -> "At your service."
         text.contains("what am i looking at") || text.contains("what is on my screen") || text.contains("read this screen") || text.contains("describe my screen") -> JarvisScreenInspector.describeScreen()
@@ -45,6 +55,11 @@ object JarvisNaturalCommandRouter {
         text.contains("work mode") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("gaming_mode",false).apply(); "Work mode enabled." }
         else -> null
     }
+
+    private fun saveRoutine(context:Context,text:String):String{val phrase=text.substringAfter("when i say ").substringBefore(" do ").trim();val actions=text.substringAfter(" do ").trim();if(phrase.isBlank()||actions.isBlank())return "I need both a phrase and an action.";context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).edit().putString(phrase,actions).apply();return "Routine saved for $phrase."}
+    private fun saveNamedRoutine(context:Context,text:String):String{val name=text.substringAfter("create routine ").substringBefore(" to ").trim();val actions=text.substringAfter(" to ").trim();if(name.isBlank()||actions.isBlank())return "I need a routine name and actions.";context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).edit().putString(name,actions).apply();return "Routine $name saved."}
+    private fun listRoutines(context:Context):String{val names=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).all.keys.sorted();return if(names.isEmpty())"You don't have any custom routines yet." else "Your routines are: "+names.joinToString(", ")+ "."}
+    private fun deleteRoutine(context:Context,name:String):String{val p=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE);if(!p.contains(name))return "I couldn't find that routine.";p.edit().remove(name).apply();return "Routine $name deleted."}
 
     private fun normalize(raw:String)=raw.lowercase(Locale.US).replace(Regex("[^a-z0-9%' ]")," ").replace(Regex("\\s+")," ").trim()
     private fun replyNotification(raw:String):String{val reply=raw.replaceFirst(Regex("(?i)^reply( that)?\\s*"),"").trim();return JarvisNotificationListenerService.replyLatest(reply)}
