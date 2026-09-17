@@ -161,9 +161,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    if(lastHeard.isNotBlank()||lastResult.isNotBlank()){Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF061426)),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Text("JARVIS CONTROL CENTER",color=cyan,fontSize=12.sp,fontWeight=FontWeight.Bold)
-                    Text("Voice: local TTS  •  Standby: ${if(standbyMode)"ON" else "OFF"}",color=muted,fontSize=11.sp)
-                    Text("Say: list routines • list aliases • diagnostics • speak faster/slower",color=muted,fontSize=10.sp)
+                    if(lastHeard.isNotBlank()||lastResult.isNotBlank()){Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF061426)),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Text("JARVIS CONTROL CENTER",color=accent,fontSize=12.sp,)
+                    Text("Voice: local TTS  •  Standby: ${if(standbyMode)"ON" else "OFF"}",color=secondaryText,fontSize=11.sp)
+                    Text("Say: list routines • list aliases • diagnostics • speak faster/slower",color=secondaryText,fontSize=10.sp)
                     Spacer(Modifier.height(8.dp))
                     Text("LIVE COMMAND TRACE",color=Color(0xFF42E8F4),fontSize=12.sp);if(lastHeard.isNotBlank())Text("HEARD  •  $lastHeard",color=Color(0xFFB8C7D9),fontSize=11.sp);if(lastResult.isNotBlank())Text("RESULT •  $lastResult",color=Color(0xFF9FB3C7),fontSize=11.sp)}};Spacer(Modifier.height(12.dp))}
                     Button(onClick = { toggleVoice() }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A3550))) { Text(if (active) "DEACTIVATE JARVIS" else "ACTIVATE JARVIS", color = Color(0xFF7DEFF2)) }
