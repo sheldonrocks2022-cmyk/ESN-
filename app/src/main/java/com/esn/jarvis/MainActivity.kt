@@ -65,6 +65,10 @@ class MainActivity : ComponentActivity() {
     private var batteryText by mutableStateOf("Battery: checking…")
     private var clockText by mutableStateOf("")
     private var lastCrash by mutableStateOf("")
+    private var serviceStage by mutableStateOf("IDLE")
+    private var lastHeard by mutableStateOf("")
+    private var lastResult by mutableStateOf("")
+    private var standbyMode by mutableStateOf(false)
     private val commandHistory = mutableStateListOf<String>()
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -132,7 +136,7 @@ class MainActivity : ComponentActivity() {
                             drawCircle(Color(0xFF7DEFF2), r * 0.36f); drawCircle(Color(0xFF061426), r * 0.23f)
                             drawLine(Color(0xFF42E8F4).copy(alpha = scan), Offset(c.x-r*1.6f, c.y), Offset(c.x+r*1.6f, c.y), 1.5f)
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (active) "LISTENING" else "JARVIS", color = Color(0xFF7DEFF2), fontSize = 18.sp); Text(if (active) "VOICE LINK ACTIVE" else "CORE STANDBY", color = Color(0xFF7891AA), fontSize = 9.sp, modifier = Modifier.alpha(0.9f)) }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (standbyMode) "STANDBY" else if (active) serviceStage.substringBefore(":").take(18) else "JARVIS", color = Color(0xFF7DEFF2), fontSize = 18.sp); Text(if (active) "VOICE LINK ACTIVE" else "CORE STANDBY", color = Color(0xFF7891AA), fontSize = 9.sp, modifier = Modifier.alpha(0.9f)) }
                     }
                     Text(message, color = Color(0xFFD6E2F0), fontSize = 14.sp, modifier = Modifier.padding(horizontal = 12.dp)); Spacer(Modifier.height(12.dp))
                     if (lastCrash.isNotBlank()) {
@@ -153,10 +157,11 @@ class MainActivity : ComponentActivity() {
                     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF071A2B)), shape = RoundedCornerShape(16.dp)) {
                         Column(Modifier.padding(15.dp)) {
                             Text("SYSTEM TELEMETRY", color = Color(0xFF42E8F4), fontSize = 12.sp); Spacer(Modifier.height(8.dp))
-                            TelemetryRow("CORE", if (active) "ACTIVE" else "STANDBY"); TelemetryRow("VOICE", if (hasMicPermission()) "READY" else "PERMISSION NEEDED"); TelemetryRow("COMMAND ENGINE", "ONLINE"); TelemetryRow("NATIVE TTS", "ONLINE"); TelemetryRow("POWER", batteryText.removePrefix("Battery: "))
+                            TelemetryRow("CORE", if (standbyMode) "STANDBY" else if (active) "ACTIVE" else "OFFLINE"); TelemetryRow("STATE", serviceStage.take(28)); TelemetryRow("VOICE", if (hasMicPermission()) "READY" else "PERMISSION NEEDED"); TelemetryRow("COMMAND ENGINE", "ONLINE"); TelemetryRow("NATIVE TTS", "ONLINE"); TelemetryRow("POWER", batteryText.removePrefix("Battery: "))
                         }
                     }
                     Spacer(Modifier.height(12.dp))
+                    if(lastHeard.isNotBlank()||lastResult.isNotBlank()){Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF061426)),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Text("LIVE COMMAND TRACE",color=Color(0xFF42E8F4),fontSize=12.sp);if(lastHeard.isNotBlank())Text("HEARD  •  $lastHeard",color=Color(0xFFB8C7D9),fontSize=11.sp);if(lastResult.isNotBlank())Text("RESULT •  $lastResult",color=Color(0xFF9FB3C7),fontSize=11.sp)}};Spacer(Modifier.height(12.dp))}
                     Button(onClick = { toggleVoice() }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A3550))) { Text(if (active) "DEACTIVATE JARVIS" else "ACTIVATE JARVIS", color = Color(0xFF7DEFF2)) }
                     Spacer(Modifier.height(12.dp)); Text("QUICK COMMANDS", color = Color(0xFF42E8F4), fontSize = 12.sp, modifier = Modifier.fillMaxWidth()); Spacer(Modifier.height(7.dp))
                     Row(Modifier.fillMaxWidth()) { HudButton("DIAGNOSTICS", Modifier.weight(1f)) { runQuickCommand("run diagnostics") }; Spacer(Modifier.width(8.dp)); HudButton("STATUS", Modifier.weight(1f)) { runQuickCommand("system status") } }
@@ -217,7 +222,12 @@ class MainActivity : ComponentActivity() {
     private fun hasMicPermission(): Boolean = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     private fun refreshStatus() {
-        active = getSharedPreferences("jarvis", MODE_PRIVATE).getBoolean("active", active)
+        val prefs=getSharedPreferences("jarvis", MODE_PRIVATE)
+        active = prefs.getBoolean("active", active)
+        standbyMode=prefs.getBoolean("standby",false)
+        serviceStage=prefs.getString("service_stage",if(active)"ACTIVE" else "IDLE").orEmpty()
+        lastHeard=prefs.getString("last_heard","").orEmpty()
+        lastResult=prefs.getString("last_result","").orEmpty()
         val battery = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = battery?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
         batteryText = if (level >= 0) "Battery: $level%" else "Battery: unavailable"
