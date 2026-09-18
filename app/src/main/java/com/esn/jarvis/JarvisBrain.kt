@@ -25,7 +25,7 @@ object JarvisBrain {
             lower.contains("what did i do recently")||lower.contains("what have i done recently")||lower=="recent commands"->if(recent.isEmpty())"There is no recent command history yet." else "Recently: "+recent.takeLast(5).joinToString(", ")+"."
             lower.contains("what was my last command")->recent.lastOrNull()?.let{"Your last command was: $it."}?:"There is no recent command history yet."
             lower in setOf("do that again","repeat that","same again")->if(recent.isEmpty())"There is no recent command to reference." else "Your previous command was ${recent.last()}. Say repeat that command if you want me to execute it."
-            else->"I don't have a local handler for that yet. I can still control supported phone functions, apps, messages, notifications, media, reminders, routines, and screen actions."
+            else->"I can\'t do that yet."
         }
         prefs.edit().putString("last_user",text).putString("last_response",response).apply()
         return response
