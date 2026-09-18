@@ -40,6 +40,8 @@ object JarvisMessaging {
         return out.distinctBy{it.first.lowercase()+":"+it.second.filter(Char::isDigit)}
     }
 
+    fun resolveContactByType(context:Context,name:String,typeWord:String):Pair<String,String>?{if(context.checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)return null;val wanted=alias(context,name).trim();val projection=arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER,ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,ContactsContract.CommonDataKinds.Phone.TYPE);context.contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,projection,null,null,null)?.use{c->val ni=c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);val di=c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);val ti=c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.TYPE);while(c.moveToNext()){val d=c.getString(di).orEmpty();val n=c.getString(ni).orEmpty();val t=c.getInt(ti);val match=when(typeWord.lowercase()){ "mobile","cell"->t==ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE;"home"->t==ContactsContract.CommonDataKinds.Phone.TYPE_HOME;"work"->t==ContactsContract.CommonDataKinds.Phone.TYPE_WORK;else->false};if(match&&d.equals(wanted,true)&&n.isNotBlank())return d to n}};return null}
+
     fun resolveContact(context:Context,name:String):Pair<String,String>? {
         if(context.checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)return null
         val wanted=alias(context,name).trim()
