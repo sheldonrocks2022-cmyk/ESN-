@@ -65,6 +65,12 @@ object JarvisNaturalCommandRouter {
         text.startsWith("find and tap ") -> JarvisScreenInspector.scrollTo(text.removePrefix("find and tap ").trim())
         text.startsWith("type ") && text.contains(" into ") -> { val value=text.substringAfter("type ").substringBefore(" into ").trim();val field=text.substringAfter(" into ").trim();JarvisScreenInspector.typeInto(field,value) }
         text == "run diagnostics" || text == "system diagnostics" || text == "system health" -> JarvisDiagnostics.report(context)
+        text == "recover jarvis" || text == "repair jarvis" -> JarvisDiagnostics.recover(context)
+        text in setOf("pause music","play music","resume music","play pause") -> JarvisMediaControl.playPause(context)
+        text in setOf("next song","next track","skip song","skip track") -> JarvisMediaControl.next(context)
+        text in setOf("previous song","previous track","go back a song") -> JarvisMediaControl.previous(context)
+        text == "stop music" -> JarvisMediaControl.stop(context)
+        text == "last automation event" -> context.getSharedPreferences("jarvis_automation",Context.MODE_PRIVATE).getString("last_event","No system event recorded yet.").orEmpty()
         text == "what did i miss" || text == "summarize my notifications" -> JarvisNotificationListenerService.summary(context)
         text.startsWith("mute notifications from ") -> JarvisNotificationListenerService.muteSource(context,text.removePrefix("mute notifications from ").trim())
         text == "open notifications" || text == "show notifications" || text == "pull down notifications" -> if (JarvisAccessibilityService.notifications()) "Opening notifications." else "Phone Access is not enabled."
@@ -81,6 +87,9 @@ object JarvisNaturalCommandRouter {
         text.startsWith("reply ") || text.startsWith("reply that ") -> replyNotification(text)
         text == "dismiss that notification" || text == "dismiss latest notification" || text == "clear that notification" -> JarvisNotificationListenerService.dismissLatest()
         text.startsWith("tell him ") || text.startsWith("tell her ") || text.startsWith("message him ") || text.startsWith("message her ") -> messageCurrentContact(context,text)
+        text.startsWith("draft message to ") && text.contains(" saying ") -> { val r=text.substringAfter("draft message to ").substringBefore(" saying ").trim();val b=text.substringAfter(" saying ").trim();JarvisContext.saveDraft(context,r,b);"Draft saved for $r." }
+        text == "read my draft" -> { val r=JarvisContext.draftRecipient(context);val b=JarvisContext.draftBody(context);if(r.isBlank()||b.isBlank())"There is no message draft." else "Draft to $r: $b" }
+        text == "send the draft" || text == "send it" -> { val r=JarvisContext.draftRecipient(context);val b=JarvisContext.draftBody(context);if(r.isBlank()||b.isBlank())"There is no message draft." else JarvisMessaging.execute(context,"send a message to $r saying $b").also{if(it.startsWith("Message sent"))JarvisContext.clearDraft(context)} }
         text == "call him" || text == "call her" || text == "call them" -> callCurrentContact(context)
         text == "go to settings" || text == "take me to settings" -> open(context, Settings.ACTION_SETTINGS, "Settings opened.")
         text == "go home" || text == "take me home" -> if (JarvisAccessibilityService.home()) "Going home." else "Phone Access is not enabled."
