@@ -46,8 +46,8 @@ jobs:
           INFO=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 1)
           echo "$INFO"
           echo "$INFO" | grep -q "name='com.esn.jarvis'"
-          echo "$INFO" | grep -q "versionCode='213'"
-          echo "$INFO" | grep -q "versionName='0.3.213'"
+          echo "$INFO" | grep -q "versionCode='217'"
+          echo "$INFO" | grep -q "versionName='0.3.217'"
           sha256sum "$APK"
 
       - name: Name APK for this build
