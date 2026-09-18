@@ -6,11 +6,13 @@ import android.provider.Settings
 import java.util.Locale
 
 object JarvisNaturalCommandRouter {
-    fun execute(context: Context, raw: String): String? {
+    fun execute(context: Context, raw: String): String? = executeSafe(context,raw,0,mutableSetOf())
+    private fun executeSafe(context:Context,raw:String,depth:Int,seen:MutableSet<String>):String? {
+        if(depth>8)return "Routine stopped because it exceeded the safety limit."
         val text = normalize(raw)
         if (text.isBlank()) return "I didn't catch that."
         val alias=JarvisAliases.resolve(context,text)
-        if(alias.isNotBlank()) return execute(context,alias)
+        if(alias.isNotBlank()){if(!seen.add(text))return "Routine stopped because a loop was detected.";return executeSafe(context,alias,depth+1,seen)}
         val parts = text.split(Regex("\\s+(?:and then|then)\\s+")).map { it.trim() }.filter { it.isNotBlank() }
         if (parts.size in 2..6) return parts.joinToString(" ") { executePart(context,it) }
         return executeSingle(context,text) ?: if (looksConversational(text)) JarvisBrain.respond(context, raw) else null
@@ -51,6 +53,7 @@ object JarvisNaturalCommandRouter {
         text.startsWith("dismiss notification from ") -> JarvisNotificationListenerService.dismissMatching(text.removePrefix("dismiss notification from ").trim())
         text.contains("read my notifications") || text.contains("show me my notifications") -> JarvisNotificationListenerService.readLatestMessages(context)
         text.contains("notification access") || text.contains("let you read my notifications") || text.contains("enable notification access") -> JarvisNotificationListenerService.notificationAccessSettings(context)
+        text == "who sent that" || text == "who was that" -> JarvisNotificationListenerService.latestSender(context)
         text.startsWith("reply ") || text.startsWith("reply that ") -> replyNotification(text)
         text == "dismiss that notification" || text == "dismiss latest notification" || text == "clear that notification" -> JarvisNotificationListenerService.dismissLatest()
         text.startsWith("tell him ") || text.startsWith("tell her ") || text.startsWith("message him ") || text.startsWith("message her ") -> messageCurrentContact(context,text)
