@@ -22,6 +22,7 @@ class JarvisAccessibilityService : AccessibilityService() {
         fun scrollBackward() = instance?.scrollInternal(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) == true
         fun focusText(text:String)=instance?.focusTextInternal(text)==true
         fun hasAccess()=instance!=null
+        fun activePackage()=instance?.rootInActiveWindow?.packageName?.toString().orEmpty()
     }
     override fun onServiceConnected() { super.onServiceConnected(); instance = this }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
