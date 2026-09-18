@@ -76,6 +76,7 @@ object JarvisCommandEngine {
             command.contains("what date") || command == "date" || command.contains("today's date") || command.contains("what day") -> "Today is ${SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault()).format(Date())}."
             command == "list reminders" || command == "show reminders" || command == "what are my reminders" -> JarvisReminderManager.list(context)
             command == "cancel all reminders" || command == "clear all reminders" -> JarvisReminderManager.cancelAll(context)
+            command.startsWith("cancel reminder ") -> JarvisReminderManager.cancelMatching(context,command.removePrefix("cancel reminder ").trim())
             command.contains("set a timer") || command.contains("start a timer") || command.matches(Regex("timer for .+")) -> setTimer(context, command)
             command.contains("remind me") || command.contains("set a reminder") -> setReminder(context, command)
             command.contains("set an alarm") || command.contains("set alarm") || command.contains("alarm for") -> setAlarm(context, command)
