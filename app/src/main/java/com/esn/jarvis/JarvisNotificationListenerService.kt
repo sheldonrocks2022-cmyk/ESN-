@@ -15,6 +15,8 @@ class JarvisNotificationListenerService : NotificationListenerService() {
         private const val MAX_ITEMS=25
         private const val KEY_FOCUS="focus_key"
         @Volatile private var instance:JarvisNotificationListenerService?=null
+        const val ACTION_SPEAK_NOTIFICATION="com.esn.jarvis.SPEAK_NOTIFICATION"
+        const val EXTRA_NOTIFICATION_TEXT="notification_text"
 
         fun readLatestMessages(context:Context):String{val raw=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY_ITEMS,"").orEmpty();if(raw.isBlank())return "I don't have any recent message notifications to read.";val items=raw.split("\n---\n").filter{it.isNotBlank()}.takeLast(5).reversed();return "Here are your most recent messages. "+items.joinToString(" ")}
         fun readMatching(context:Context,query:String):String{val raw=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY_ITEMS,"").orEmpty();val q=query.trim().lowercase();val items=raw.split("\n---\n").filter{it.isNotBlank()&&it.lowercase().contains(q)}.takeLast(5).reversed();return if(items.isEmpty())"I couldn't find recent notifications matching $query." else "Recent notifications matching $query. "+items.joinToString(" ")}
@@ -43,5 +45,8 @@ class JarvisNotificationListenerService : NotificationListenerService() {
         val entry="$title says: $text"
         existing.remove(entry);existing.add(entry);while(existing.size>MAX_ITEMS)existing.removeAt(0)
         prefs.edit().putString(KEY_ITEMS,existing.joinToString("\n---\n")).apply()
+        if(getSharedPreferences("jarvis",MODE_PRIVATE).getBoolean("read_all_notifications",true)){
+            try{startService(Intent(this,JarvisVoiceService::class.java).setAction(ACTION_SPEAK_NOTIFICATION).putExtra(EXTRA_NOTIFICATION_TEXT,"Notification from $title. $text"))}catch(_:Throwable){}
+        }
     }
 }
