@@ -8,14 +8,14 @@ import android.provider.ContactsContract
 import android.telephony.SmsManager
 
 object JarvisMessaging {
-    fun canHandle(command: String): Boolean = command.matches(Regex("^(send (a )?(text|message) to|text) .+", RegexOption.IGNORE_CASE))
+    fun canHandle(command: String): Boolean = command.matches(Regex("^(send (a )?(text|message)( to)?|text|message) .+", RegexOption.IGNORE_CASE))
 
     fun execute(context: Context, raw: String): String {
         if (context.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED || context.checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
             context.startActivity(Intent(context, MessagingPermissionActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             return "Allow Contacts and SMS access, then say the command again."
         }
-        val cleaned = raw.trim().replaceFirst(Regex("^(send (a )?(text|message) to|text)\\s+", RegexOption.IGNORE_CASE), "")
+        val cleaned = raw.trim().replaceFirst(Regex("^(send (a )?(text|message)( to)?|text|message)\\s+", RegexOption.IGNORE_CASE), "")
         val match = Regex("^(.+?)\\s+(?:saying|say|that says|message)\\s+(.+)$", RegexOption.IGNORE_CASE).find(cleaned) ?: return "Say: send a message to John saying I'm on my way."
         val recipient = match.groupValues[1].trim(); val body = match.groupValues[2].trim()
         JarvisContext.remember(context,"contact",recipient)
