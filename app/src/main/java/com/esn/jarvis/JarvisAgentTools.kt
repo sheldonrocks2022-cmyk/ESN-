@@ -7,7 +7,11 @@ sealed interface AgentStep{
  data class Tap(val label:String):AgentStep{override val requiresChange=true;override fun describe()="tap "+label}
  data class Type(val value:String):AgentStep{override val requiresChange=false;override fun describe()="type text"}
  data object Back:AgentStep{override val requiresChange=true;override fun describe()="go back"}
- data object Scroll:AgentStep{override val requiresChange=true;override fun describe()="scroll"}\n data object Home:AgentStep{override val requiresChange=true;override fun describe()="go home"}\n data object Recents:AgentStep{override val requiresChange=true;override fun describe()="open recents"}\n data object Notifications:AgentStep{override val requiresChange=true;override fun describe()="open notifications"}\n data object QuickSettings:AgentStep{override val requiresChange=true;override fun describe()="open quick settings"}
+ data object Scroll:AgentStep{override val requiresChange=true;override fun describe()="scroll"}
+ data object Home:AgentStep{override val requiresChange=true;override fun describe()="go home"}
+ data object Recents:AgentStep{override val requiresChange=true;override fun describe()="open recents"}
+ data object Notifications:AgentStep{override val requiresChange=true;override fun describe()="open notifications"}
+ data object QuickSettings:AgentStep{override val requiresChange=true;override fun describe()="open quick settings"}
 }
 data class AgentResult(val ok:Boolean,val message:String)
 object JarvisAgentTools{
