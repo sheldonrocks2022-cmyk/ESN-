@@ -40,6 +40,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Slider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.text.SimpleDateFormat
@@ -78,6 +80,8 @@ class MainActivity : ComponentActivity() {
     private var voicePitch by mutableStateOf(0.68f)
     private var ownerVoiceEnrolled by mutableStateOf(false)
     private var enrollingVoice by mutableStateOf(false)
+    private var discordGuildId by mutableStateOf("")
+    private var discordBotToken by mutableStateOf("")
     private var voiceLoader: TextToSpeech? = null
     private val commandHistory = mutableStateListOf<String>()
 
@@ -98,6 +102,7 @@ class MainActivity : ComponentActivity() {
         val persisted=getSharedPreferences("jarvis_history",MODE_PRIVATE).getString("items","").orEmpty().lines().filter{it.isNotBlank()}.takeLast(8)
         commandHistory.addAll(persisted)
         ownerVoiceEnrolled=OwnerVoiceProfile.isEnrolled(this)
+        discordGuildId=JarvisDiscordManager.guild(this)
         loadVoices()
         setContent { JarvisScreen() }
     }
@@ -194,6 +199,8 @@ class MainActivity : ComponentActivity() {
                         }
                         if(enrollingVoice) Text("Enrollment running locally. Say “JARVIS” naturally for each sample.",color=Color(0xFF9FB3C7),fontSize=10.sp)
                     } }
+                    Spacer(Modifier.height(12.dp))
+                    Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF071A2B)),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Text("DISCORD SERVER MANAGER",color=Color(0xFF42E8F4),fontSize=12.sp);OutlinedTextField(value=discordGuildId,onValueChange={discordGuildId=it.filter(Char::isDigit)},label={Text("Server ID")},singleLine=true,modifier=Modifier.fillMaxWidth());OutlinedTextField(value=discordBotToken,onValueChange={discordBotToken=it},label={Text("Bot token")},singleLine=true,visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth());Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){HudButton("SAVE",Modifier.weight(1f)){if(discordGuildId.isBlank())message="Enter a Discord server ID." else{JarvisDiscordManager.saveGuild(this@MainActivity,discordGuildId);if(discordBotToken.isNotBlank()){JarvisDiscordSecrets.saveToken(this@MainActivity,discordBotToken);discordBotToken=""};message="Discord server saved."}};HudButton("TEST",Modifier.weight(1f)){Thread{val x=JarvisDiscordManager.test(this@MainActivity);runOnUiThread{message=x}}.start()}};Text("Per-install server binding. Bot token is encrypted on-device. Destructive bulk actions require confirmation.",color=Color(0xFF60778E),fontSize=9.sp)}}
                     Spacer(Modifier.height(12.dp))
                     Button(onClick = { toggleVoice() }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A3550))) { Text(if (active) "DEACTIVATE JARVIS" else "ACTIVATE JARVIS", color = Color(0xFF7DEFF2)) }
                     Spacer(Modifier.height(8.dp))

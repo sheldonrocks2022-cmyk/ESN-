@@ -48,6 +48,7 @@ object JarvisNaturalCommandRouter {
         text == "call them back" || text == "call them again" -> callCurrentContact(context)
         text == "message them again" || text == "text them again" -> { val contact=JarvisContext.recall(context,"contact"); if(contact.isBlank()) "I don't have a recent contact in context." else "Tell me what you want to say to $contact." }
         text == "bluetooth status" || text == "is bluetooth connected" -> if(context.getSharedPreferences("jarvis_bluetooth",Context.MODE_PRIVATE).getBoolean("connected",false)) "A Bluetooth device is connected." else "I don't currently detect a Bluetooth device connection."
+        text.startsWith("discord ") || text=="confirm discord action" || text=="confirm discord wipe" || (text.contains("ban all accounts") && text.contains("created within")) -> JarvisDiscordManager.execute(context,text)
         text == "help" || text == "what can you do" || text == "what can i say" -> "I can open apps, send messages, control supported phone functions, read notifications, inspect your screen, run routines, chain commands, and maintain recent conversation context."
         text == "are you there" || text == "you there" || text == "hello" || text == "hey" -> "At your service."
         text.contains("what am i looking at") || text.contains("what is on my screen") || text.contains("read this screen") || text.contains("describe my screen") -> JarvisScreenInspector.describeScreen()
