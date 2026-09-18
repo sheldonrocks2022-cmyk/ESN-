@@ -80,7 +80,13 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             standby=true
             checkpoint("STANDBY")
             getSharedPreferences(PREFS,MODE_PRIVATE).edit().putBoolean("standby",true).apply()
-            speak("Code 101 acknowledged. Standing by.")
+            // Code 101 must silence only JARVIS. Do not request audio focus or send media keys,
+            // so Spotify/other media keeps playing.
+            pendingSpeech=null
+            try { tts?.stop() } catch (_:Throwable) {}
+            speaking=false
+            checkpoint("CODE101_MEDIA_UNTOUCHED")
+            handler.postDelayed({if(active)startRecognition()},250L)
             return
         }
         if(standby){
