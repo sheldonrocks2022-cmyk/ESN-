@@ -16,6 +16,7 @@ object JarvisSecurity {
         val notifications=Settings.Secure.getString(context.contentResolver,"enabled_notification_listeners").orEmpty().contains(context.packageName)
         return listOf(
             "OWNER VOICE" to if(OwnerVoiceProfile.isEnrolled(context)) "ENROLLED" else "NOT ENROLLED",
+            "DEVICE AUTH" to if((context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isDeviceSecure) "SECURE" else "NOT CONFIGURED",
             "EMERGENCY LOCK" to if(prefs.getBoolean("emergency_shutdown",false)) "LOCKED" else "READY",
             "MICROPHONE" to if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) "READY" else "PERMISSION NEEDED",
             "ACCESSIBILITY" to if(accessibility) "ENABLED" else "OFF",
