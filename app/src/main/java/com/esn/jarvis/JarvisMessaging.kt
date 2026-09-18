@@ -34,13 +34,23 @@ object JarvisMessaging {
 
     fun resolveContact(context:Context,name:String):Pair<String,String>? {
         if(context.checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)return null
+        val wanted=alias(context,name).trim()
+        if(wanted.isBlank())return null
         val projection=arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER,ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-        val matches=mutableListOf<Pair<String,String>>()
+        val exact=mutableListOf<Pair<String,String>>();val partial=mutableListOf<Pair<String,String>>()
         context.contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,projection,null,null,null)?.use{cursor->
             val ni=cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);val di=cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-            while(cursor.moveToNext()){val display=cursor.getString(di).orEmpty();val number=cursor.getString(ni).orEmpty();if(display.equals(name,true)||display.contains(name,true))matches+=display to number}
+            while(cursor.moveToNext()){
+                val display=cursor.getString(di).orEmpty().trim();val number=cursor.getString(ni).orEmpty().trim()
+                if(number.isBlank())continue
+                if(display.equals(wanted,true))exact+=display to number
+                else if(display.contains(wanted,true)||wanted.contains(display,true))partial+=display to number
+            }
         }
-        return matches.distinctBy{it.second}.firstOrNull()
+        val exactUnique=exact.distinctBy{it.second.filter(Char::isDigit)}
+        if(exactUnique.isNotEmpty())return exactUnique.first()
+        val partialUnique=partial.distinctBy{it.first.lowercase()}
+        return if(partialUnique.size==1)partialUnique.first() else null
     }
 
     private fun findMobileNumber(context: Context, name: String): String? {
