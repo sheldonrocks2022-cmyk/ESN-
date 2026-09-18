@@ -36,7 +36,19 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Build debug APK
-        run: gradle assembleDebug
+        run: gradle clean assembleDebug --no-build-cache --rerun-tasks
+
+      - name: Verify APK identity
+        if: github.event_name != 'pull_request'
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          INFO=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 1)
+          echo "$INFO"
+          echo "$INFO" | grep -q "name='com.esn.jarvis'"
+          echo "$INFO" | grep -q "versionCode='213'"
+          echo "$INFO" | grep -q "versionName='0.3.213'"
+          sha256sum "$APK"
 
       - name: Name APK for this build
         if: github.event_name != 'pull_request'
