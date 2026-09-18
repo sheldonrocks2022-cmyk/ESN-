@@ -49,7 +49,8 @@ object JarvisNaturalCommandRouter {
         text.startsWith("delete routine ") -> deleteRoutine(context,text.removePrefix("delete routine ").trim())
         text.startsWith("edit routine ") && text.contains(" to ") -> saveNamedRoutine(context,text.replaceFirst("edit routine ","create routine "))
         text.startsWith("run routine ") -> execute(context,text.removePrefix("run routine ").trim())
-        text == "do that again" || text == "repeat that command" -> repeatLast(context)
+        text == "do that again" || text == "repeat that command" || text == "do it again" -> repeatLast(context)
+        text == "what were we doing" || text == "what was i doing" -> { val recent=JarvisContext.recent(context);if(recent.isBlank())"I do not have recent command context." else "Recently you asked me to $recent." }
         text == "call them back" || text == "call them again" -> callCurrentContact(context)
         text == "message them again" || text == "text them again" -> { val contact=JarvisContext.recall(context,"contact"); if(contact.isBlank()) "I don't have a recent contact in context." else "Tell me what you want to say to $contact." }
         text == "bluetooth status" || text == "is bluetooth connected" -> if(context.getSharedPreferences("jarvis_bluetooth",Context.MODE_PRIVATE).getBoolean("connected",false)) "A Bluetooth device is connected." else "I don't currently detect a Bluetooth device connection."
@@ -58,6 +59,14 @@ object JarvisNaturalCommandRouter {
         text.contains("what am i looking at") || text.contains("what is on my screen") || text.contains("read this screen") || text.contains("describe my screen") -> JarvisScreenInspector.describeScreen()
         text.startsWith("do you see ") -> if(JarvisScreenInspector.hasText(text.removePrefix("do you see ").trim())) "Yes, I can see that on the current screen." else "I don't see that on the current screen."
         text.startsWith("tap on screen ") -> JarvisScreenInspector.tapText(text.removePrefix("tap on screen ").trim())
+        text == "what controls can you see" || text == "what buttons can you see" -> JarvisScreenInspector.listControls()
+        text.matches(Regex("tap (the )?(\\d+)(st|nd|rd|th)?( item| result| button)?")) -> JarvisScreenInspector.tapNumber(Regex("\\d+").find(text)?.value?.toIntOrNull()?:1)
+        text.startsWith("scroll until you see ") -> JarvisScreenInspector.scrollTo(text.removePrefix("scroll until you see ").trim())
+        text.startsWith("find and tap ") -> JarvisScreenInspector.scrollTo(text.removePrefix("find and tap ").trim())
+        text.startsWith("type ") && text.contains(" into ") -> { val value=text.substringAfter("type ").substringBefore(" into ").trim();val field=text.substringAfter(" into ").trim();JarvisScreenInspector.typeInto(field,value) }
+        text == "run diagnostics" || text == "system diagnostics" || text == "system health" -> JarvisDiagnostics.report(context)
+        text == "what did i miss" || text == "summarize my notifications" -> JarvisNotificationListenerService.summary(context)
+        text.startsWith("mute notifications from ") -> JarvisNotificationListenerService.muteSource(context,text.removePrefix("mute notifications from ").trim())
         text == "open notifications" || text == "show notifications" || text == "pull down notifications" -> if (JarvisAccessibilityService.notifications()) "Opening notifications." else "Phone Access is not enabled."
         text == "open quick settings" || text == "show quick settings" -> if (JarvisAccessibilityService.quickSettings()) "Opening quick settings." else "Phone Access is not enabled."
         text.contains("read my messages") || text.contains("read my texts") || text.contains("read my sms") || text.contains("read my dms") -> JarvisNotificationListenerService.readLatestMessages(context)
