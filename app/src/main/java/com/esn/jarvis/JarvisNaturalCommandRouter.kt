@@ -71,6 +71,14 @@ object JarvisNaturalCommandRouter {
         text in setOf("previous song","previous track","go back a song") -> JarvisMediaControl.previous(context)
         text == "stop music" -> JarvisMediaControl.stop(context)
         text == "last automation event" -> context.getSharedPreferences("jarvis_automation",Context.MODE_PRIVATE).getString("last_event","No system event recorded yet.").orEmpty()
+        text == "social briefing" || text == "run my social life" || text == "social status" -> JarvisSocialManager.briefing(context)
+        text == "social follow ups" || text == "who should i follow up with" -> JarvisSocialManager.followUps(context)
+        text == "important social dates" || text == "birthdays and important dates" -> JarvisSocialManager.dates(context)
+        text == "who have i talked to recently" || text == "recent people" -> JarvisSocialManager.recentPeople(context)
+        text.startsWith("remember about ") && text.contains(" that ") -> {val person=text.substringAfter("remember about ").substringBefore(" that ").trim();val note=text.substringAfter(" that ").trim();JarvisSocialManager.note(context,person,note)}
+        text.startsWith("what do you know about ") -> JarvisSocialManager.about(context,text.removePrefix("what do you know about ").trim())
+        text.startsWith("follow up with ") && text.contains(" ") -> {val rest=text.removePrefix("follow up with ");val parts=rest.split(Regex("\\s+(tomorrow|tonight|next|in )"),limit=2);if(parts.size<2)"Tell me when to follow up." else JarvisSocialManager.followUp(context,parts[0].trim(),rest.removePrefix(parts[0]).trim())}
+        text.startsWith("clear social data for ") -> JarvisSocialManager.clearPerson(context,text.removePrefix("clear social data for ").trim())
         text == "what did i miss" || text == "summarize my notifications" -> JarvisNotificationListenerService.summary(context)
         text.startsWith("mute notifications from ") -> JarvisNotificationListenerService.muteSource(context,text.removePrefix("mute notifications from ").trim())
         text == "open notifications" || text == "show notifications" || text == "pull down notifications" -> if (JarvisAccessibilityService.notifications()) "Opening notifications." else "Phone Access is not enabled."
