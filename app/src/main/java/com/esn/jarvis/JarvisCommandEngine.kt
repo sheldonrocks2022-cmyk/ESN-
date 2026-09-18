@@ -35,6 +35,7 @@ object JarvisCommandEngine {
                 val q = command.replaceFirst(Regex("^(search the web( for)?|search for|google|look up) "), "").trim()
                 if (q.isBlank()) "Tell me what to search for." else { openUrl(context, "https://www.google.com/search?q=${Uri.encode(q)}"); "Searching for $q." }
             }
+            command.matches(Regex("^(play|put on) .+( on spotify)?$")) && command != "play music" && command != "play it" -> playOnSpotify(context, original)
             command == "pause it" || command.contains("pause") && !command.contains("pause timer") -> media(context,android.view.KeyEvent.KEYCODE_MEDIA_PAUSE,"Media paused.")
             command == "skip this" || command == "skip it" -> media(context,android.view.KeyEvent.KEYCODE_MEDIA_NEXT,"Skipping.")
             command == "go back a song" || command == "go back a track" -> media(context,android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS,"Previous track.")
@@ -101,6 +102,14 @@ object JarvisCommandEngine {
         }
     }
 
+    private fun playOnSpotify(context:Context,original:String):String {
+        val query=original.replaceFirst(Regex("(?i)^(play|put on)\\s+"),"").replaceFirst(Regex("(?i)\\s+on spotify$"),"").trim()
+        if(query.isBlank())return "Tell me what song to play on Spotify."
+        return try{
+            val intent=Intent(Intent.ACTION_VIEW,Uri.parse("spotify:search:${Uri.encode(query)}")).setPackage("com.spotify.music").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent);JarvisContext.remember(context,"media","spotify");"Opening $query in Spotify."
+        }catch(_:Exception){"I couldn't open Spotify."}
+    }
     private fun displayName(target: String) = target.split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercaseChar() } }
     private fun tryLaunchKnownApp(context: Context, target: String): Boolean {
         val known = mapOf("discord" to "com.discord", "youtube" to "com.google.android.youtube", "minecraft" to "com.mojang.minecraftpe", "spotify" to "com.spotify.music", "snapchat" to "com.snapchat.android", "gmail" to "com.google.android.gm", "chrome" to "com.android.chrome", "google chrome" to "com.android.chrome", "reddit" to "com.reddit.frontpage", "facebook" to "com.facebook.katana", "instagram" to "com.instagram.android", "tiktok" to "com.zhiliaoapp.musically", "x" to "com.twitter.android", "twitter" to "com.twitter.android", "maps" to "com.google.android.apps.maps", "google maps" to "com.google.android.apps.maps", "photos" to "com.google.android.apps.photos", "google photos" to "com.google.android.apps.photos", "drive" to "com.google.android.apps.docs", "google drive" to "com.google.android.apps.docs", "files" to "com.google.android.documentsui", "calculator" to "com.google.android.calculator", "play store" to "com.android.vending", "settings" to "com.android.settings")
