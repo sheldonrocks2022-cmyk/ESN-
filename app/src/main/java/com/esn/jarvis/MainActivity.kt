@@ -76,6 +76,8 @@ class MainActivity : ComponentActivity() {
     private var selectedVoice by mutableStateOf("")
     private var voiceRate by mutableStateOf(0.76f)
     private var voicePitch by mutableStateOf(0.68f)
+    private var ownerVoiceEnrolled by mutableStateOf(false)
+    private var enrollingVoice by mutableStateOf(false)
     private var voiceLoader: TextToSpeech? = null
     private val commandHistory = mutableStateListOf<String>()
 
@@ -91,6 +93,7 @@ class MainActivity : ComponentActivity() {
         lastCrash = getSharedPreferences("jarvis", MODE_PRIVATE).getString("last_crash", "").orEmpty()
         requestPermissionsIfNeeded()
         refreshStatus()
+        ownerVoiceEnrolled=OwnerVoiceProfile.isEnrolled(this)
         loadVoices()
         setContent { JarvisScreen() }
     }
@@ -177,6 +180,17 @@ class MainActivity : ComponentActivity() {
                     Text("LIVE COMMAND TRACE",color=Color(0xFF42E8F4),fontSize=12.sp);if(lastHeard.isNotBlank())Text("HEARD  •  $lastHeard",color=Color(0xFFB8C7D9),fontSize=11.sp);if(lastCommand.isNotBlank())Text("UNDERSTOOD •  $lastCommand",color=Color(0xFFB8C7D9),fontSize=11.sp);Text("ACTION •  ${serviceStage.take(36)}",color=Color(0xFF9FB3C7),fontSize=11.sp);if(lastResult.isNotBlank())Text("RESULT •  $lastResult",color=Color(0xFF9FB3C7),fontSize=11.sp)}};Spacer(Modifier.height(12.dp))}
                     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF071A2B)), shape = RoundedCornerShape(16.dp)) { Column(Modifier.padding(15.dp)) { Text("VOICE MATRIX", color = Color(0xFF42E8F4), fontSize = 12.sp); Text(if(selectedVoice.isBlank()) "AUTO • LOCAL ENGLISH" else selectedVoice.take(42), color = Color(0xFFD6E2F0), fontSize = 11.sp); Spacer(Modifier.height(7.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { voiceNames.take(3).forEachIndexed { index, name -> HudButton("VOICE ${index+1}", Modifier.weight(1f)) { selectVoice(name) } } }; Spacer(Modifier.height(8.dp)); Text("SPEED  ${(voiceRate*100).toInt()}%",color=Color(0xFF7891AA),fontSize=10.sp); Slider(value=voiceRate,onValueChange={voiceRate=it;saveVoiceTuning()},valueRange=0.55f..1.15f); Text("PITCH  ${(voicePitch*100).toInt()}%",color=Color(0xFF7891AA),fontSize=10.sp); Slider(value=voicePitch,onValueChange={voicePitch=it;saveVoiceTuning()},valueRange=0.55f..1.25f); Text("Changes apply the next time the voice engine starts.",color=Color(0xFF60778E),fontSize=9.sp) } }
                     Spacer(Modifier.height(12.dp))
+                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF071A2B)), shape = RoundedCornerShape(16.dp)) { Column(Modifier.padding(15.dp)) {
+                        Text("SECURITY CENTER", color = Color(0xFF42E8F4), fontSize = 12.sp)
+                        JarvisSecurity.status(this@MainActivity).forEach { TelemetryRow(it.first,it.second) }
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            HudButton(if(ownerVoiceEnrolled)"RE-ENROLL VOICE" else "ENROLL OWNER VOICE", Modifier.weight(1f)) { enrollOwnerVoice() }
+                            if(ownerVoiceEnrolled) HudButton("DELETE PROFILE", Modifier.weight(1f)) { OwnerVoiceProfile.clear(this@MainActivity);ownerVoiceEnrolled=false;message="Owner voice profile deleted." }
+                        }
+                        if(enrollingVoice) Text("Enrollment running locally. Say “JARVIS” naturally for each sample.",color=Color(0xFF9FB3C7),fontSize=10.sp)
+                    } }
+                    Spacer(Modifier.height(12.dp))
                     Button(onClick = { toggleVoice() }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A3550))) { Text(if (active) "DEACTIVATE JARVIS" else "ACTIVATE JARVIS", color = Color(0xFF7DEFF2)) }
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(onClick = { emergencyShutdown() }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("EMERGENCY SHUTDOWN", color = Color(0xFFFFB4AB)) }
@@ -216,6 +230,18 @@ class MainActivity : ComponentActivity() {
         message = result
         commandHistory.add("${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())}  •  $command  →  $result")
         if (commandHistory.size > 12) commandHistory.removeAt(0)
+    }
+
+    private fun enrollOwnerVoice() {
+        if (!hasMicPermission() || enrollingVoice) { message="Microphone permission is required for enrollment."; return }
+        if (active) { message="Deactivate JARVIS before enrolling your owner voice."; return }
+        enrollingVoice=true; message="Owner voice enrollment started. Say JARVIS three times when prompted."
+        Thread {
+            val samples=mutableListOf<ShortArray>()
+            repeat(3) { OwnerVoiceProfile.recordPhrase(2)?.let(samples::add); Thread.sleep(500) }
+            val ok=OwnerVoiceProfile.enroll(this,samples)
+            runOnUiThread { enrollingVoice=false;ownerVoiceEnrolled=ok;message=if(ok)"Owner voice enrolled locally." else "Enrollment failed. Try again in a quiet room." }
+        }.start()
     }
 
     private fun emergencyShutdown() {
