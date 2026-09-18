@@ -165,8 +165,8 @@ object JarvisCommandEngine {
         if(who.isBlank())return "Tell me who you'd like to call."
         val digits=who.filter{it.isDigit()}
         if(digits.length>=7)return openSystemIntent(context,Intent(Intent.ACTION_DIAL,Uri.parse("tel:${Uri.encode(who)}")),"dialer")
-        val resolved=JarvisMessaging.resolveContact(context,who)
-        if(resolved==null){val choices=JarvisMessaging.contactChoices(context,who).map{it.first}.distinct();return if(choices.size>1)"I found multiple contacts: ${choices.take(4).joinToString(", ")}. Say the full name you want." else "I couldn't find one clear contact named $who. I won't dial a guessed number."}
+        val type=Regex("\\b(mobile|cell|home|work)$",RegexOption.IGNORE_CASE).find(who)?.groupValues?.get(1).orEmpty();val contactName=if(type.isBlank())who else who.removeSuffix(type).trim();val resolved=if(type.isBlank())JarvisMessaging.resolveContact(context,contactName) else JarvisMessaging.resolveContactByType(context,contactName,type)
+        if(resolved==null){val choices=JarvisMessaging.contactChoices(context,contactName).map{it.first}.distinct();return if(choices.size>1)"I found multiple contacts: ${choices.take(4).joinToString(", ")}. Say the full name you want." else "I couldn't find one clear contact named $who. I won't dial a guessed number."}
         JarvisContext.remember(context,"contact",resolved.first)
         return openSystemIntent(context,Intent(Intent.ACTION_DIAL,Uri.parse("tel:${Uri.encode(resolved.second)}")),resolved.first)
     }
