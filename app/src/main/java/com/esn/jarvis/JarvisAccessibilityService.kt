@@ -12,6 +12,7 @@ class JarvisAccessibilityService : AccessibilityService() {
         fun currentRoot(): AccessibilityNodeInfo? = instance?.rootInActiveWindow
         fun clickText(text: String) = instance?.clickTextInternal(text) == true
         fun typeText(text: String) = instance?.typeTextInternal(text) == true
+        fun setTextByLabel(label:String,text:String)=instance?.setTextByLabelInternal(label,text)==true
         fun back() = instance?.performGlobalAction(GLOBAL_ACTION_BACK) == true
         fun home() = instance?.performGlobalAction(GLOBAL_ACTION_HOME) == true
         fun recents() = instance?.performGlobalAction(GLOBAL_ACTION_RECENTS) == true
@@ -37,6 +38,7 @@ class JarvisAccessibilityService : AccessibilityService() {
         return false
     }
     private fun focusTextInternal(text:String):Boolean{val root=rootInActiveWindow?:return false;for(node in root.findAccessibilityNodeInfosByText(text)){if(node.isFocusable&&node.isEnabled)return node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)};return false}
+    private fun setTextByLabelInternal(label:String,text:String):Boolean{val root=rootInActiveWindow?:return false;val q=label.lowercase();fun find(n:AccessibilityNodeInfo):AccessibilityNodeInfo?{val v=(n.text?.toString().orEmpty()+" "+n.contentDescription?.toString().orEmpty()).lowercase();if(n.isEditable&&(q.isBlank()||v.contains(q)))return n;for(i in 0 until n.childCount)n.getChild(i)?.let{find(it)?.let{return it}};return null};val node=find(root)?:findEditable(root)?:return false;return node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,Bundle().apply{putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,text)})}
     private fun typeTextInternal(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
         val editable = findEditable(root) ?: return false
