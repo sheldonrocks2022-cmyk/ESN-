@@ -28,6 +28,8 @@ object JarvisCommandEngine {
                 val target = command.replaceFirst(Regex("^(open|launch|start|run) "), "").trim()
                 if (tryLaunchKnownApp(context, target)) "Opening ${displayName(target)}." else launchByAppLabel(context, target)
             }
+            command.startsWith("play youtube ") -> { val q=original.replaceFirst(Regex("(?i)^play youtube\\s+"),"").trim(); if(q.isBlank()) "Tell me what to play on YouTube." else { openUrl(context,"https://www.youtube.com/results?search_query=${Uri.encode(q)}"); "Opening YouTube results for $q." } }
+            command.startsWith("navigate to ") || command.startsWith("directions to ") -> { val q=original.replaceFirst(Regex("(?i)^(navigate to|directions to)\\s+"),"").trim(); if(q.isBlank()) "Tell me where to navigate." else { openUrl(context,"google.navigation:q=${Uri.encode(q)}"); "Starting navigation to $q." } }
             command.startsWith("search youtube") || command.startsWith("find on youtube") -> {
                 val q = command.replaceFirst(Regex("^(search youtube( for)?|find on youtube) "), "").trim()
                 if (q.isBlank()) "Tell me what to search for on YouTube." else { openUrl(context, "https://www.youtube.com/results?search_query=${Uri.encode(q)}"); "Searching YouTube for $q." }
