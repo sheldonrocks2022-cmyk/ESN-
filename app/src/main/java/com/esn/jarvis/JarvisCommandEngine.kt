@@ -21,6 +21,8 @@ object JarvisCommandEngine {
         val original = raw.trim()
         val command = original.lowercase(Locale.getDefault()).replace(Regex("\\s+"), " ").trim()
         if (command.isBlank()) return "I didn't catch that."
+        if (command in setOf("wake my phone","wake phone","show lock screen","unlock phone")) return JarvisSecurity.wakeLockScreen(context)
+        if (command in setOf("security status","security center","check security")) return JarvisSecurity.status(context).joinToString(". ") { "${it.first}: ${it.second}" }
 
         return when {
             command == "stop" || command == "cancel" || command == "be quiet" || command == "shut up" -> "Standing by."
