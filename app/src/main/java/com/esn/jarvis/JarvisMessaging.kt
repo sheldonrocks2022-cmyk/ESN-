@@ -8,6 +8,9 @@ import android.provider.ContactsContract
 import android.telephony.SmsManager
 
 object JarvisMessaging {
+    private const val ALIAS_PREFS = "jarvis_contact_aliases"
+    fun saveContactAlias(context:Context,alias:String,contact:String):String { if(alias.isBlank()||contact.isBlank()) return "Tell me the alias and contact."; context.getSharedPreferences(ALIAS_PREFS,Context.MODE_PRIVATE).edit().putString(alias.lowercase(),contact).apply(); return "I will remember $alias as $contact." }
+    private fun alias(context:Context,name:String)=context.getSharedPreferences(ALIAS_PREFS,Context.MODE_PRIVATE).getString(name.lowercase(),name).orEmpty()
     fun canHandle(command: String): Boolean = command.matches(Regex("^(send (a )?(text|message)( to)?|text|message) .+", RegexOption.IGNORE_CASE))
 
     fun execute(context: Context, raw: String): String {
@@ -17,7 +20,7 @@ object JarvisMessaging {
         }
         val cleaned = raw.trim().replaceFirst(Regex("^(send (a )?(text|message)( to)?|text|message)\\s+", RegexOption.IGNORE_CASE), "")
         val match = Regex("^(.+?)\\s+(?:saying|say|that says|message)\\s+(.+)$", RegexOption.IGNORE_CASE).find(cleaned) ?: return "Say: send a message to John saying I'm on my way."
-        val recipient = match.groupValues[1].trim(); val body = match.groupValues[2].trim()
+        val spokenRecipient = match.groupValues[1].trim(); val recipient = alias(context, spokenRecipient); val body = match.groupValues[2].trim()
         JarvisContext.remember(context,"contact",recipient)
         if (recipient.isBlank() || body.isBlank()) return "Tell me who to message and what to say."
         val number = if (recipient.count { it.isDigit() } >= 7) recipient.filter { it.isDigit() || it == '+' } else findMobileNumber(context, recipient) ?: return "I couldn't find a phone number for $recipient in your contacts."
