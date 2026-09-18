@@ -35,7 +35,9 @@ object JarvisCommandEngine {
                 val q = command.replaceFirst(Regex("^(search the web( for)?|search for|google|look up) "), "").trim()
                 if (q.isBlank()) "Tell me what to search for." else { openUrl(context, "https://www.google.com/search?q=${Uri.encode(q)}"); "Searching for $q." }
             }
-            command == "shuffle spotify" -> "Shuffle can be changed in Spotify."\n            command == "repeat spotify" -> "Repeat can be changed in Spotify."\n            command.matches(Regex("^(play|put on) .+( on spotify)?$")) && command != "play music" && command != "play it" -> playOnSpotify(context, original)
+            command == "shuffle spotify" -> "Shuffle can be changed in Spotify."
+            command == "repeat spotify" -> "Repeat can be changed in Spotify."
+            command.matches(Regex("^(play|put on) .+( on spotify)?$")) && command != "play music" && command != "play it" -> playOnSpotify(context, original)
             command == "pause it" || command.contains("pause") && !command.contains("pause timer") -> media(context,android.view.KeyEvent.KEYCODE_MEDIA_PAUSE,"Media paused.")
             command == "skip this" || command == "skip it" -> media(context,android.view.KeyEvent.KEYCODE_MEDIA_NEXT,"Skipping.")
             command == "go back a song" || command == "go back a track" -> media(context,android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS,"Previous track.")
