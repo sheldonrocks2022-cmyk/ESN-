@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
     private var serviceStage by mutableStateOf("IDLE")
     private var lastHeard by mutableStateOf("")
     private var lastResult by mutableStateOf("")
+    private var lastCommand by mutableStateOf("")
     private var standbyMode by mutableStateOf(false)
     private val commandHistory = mutableStateListOf<String>()
 
@@ -165,7 +166,7 @@ class MainActivity : ComponentActivity() {
                     Text("Voice: local TTS  •  Standby: ${if(standbyMode)"ON" else "OFF"}",color=Color(0xFF7891AA),fontSize=11.sp)
                     Text("Say: list routines • list aliases • diagnostics • speak faster/slower",color=Color(0xFF7891AA),fontSize=10.sp)
                     Spacer(Modifier.height(8.dp))
-                    Text("LIVE COMMAND TRACE",color=Color(0xFF42E8F4),fontSize=12.sp);if(lastHeard.isNotBlank())Text("HEARD  •  $lastHeard",color=Color(0xFFB8C7D9),fontSize=11.sp);if(lastResult.isNotBlank())Text("RESULT •  $lastResult",color=Color(0xFF9FB3C7),fontSize=11.sp)}};Spacer(Modifier.height(12.dp))}
+                    Text("LIVE COMMAND TRACE",color=Color(0xFF42E8F4),fontSize=12.sp);if(lastHeard.isNotBlank())Text("HEARD  •  $lastHeard",color=Color(0xFFB8C7D9),fontSize=11.sp);if(lastCommand.isNotBlank())Text("UNDERSTOOD •  $lastCommand",color=Color(0xFFB8C7D9),fontSize=11.sp);Text("ACTION •  ${serviceStage.take(36)}",color=Color(0xFF9FB3C7),fontSize=11.sp);if(lastResult.isNotBlank())Text("RESULT •  $lastResult",color=Color(0xFF9FB3C7),fontSize=11.sp)}};Spacer(Modifier.height(12.dp))}
                     Button(onClick = { toggleVoice() }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A3550))) { Text(if (active) "DEACTIVATE JARVIS" else "ACTIVATE JARVIS", color = Color(0xFF7DEFF2)) }
                     Spacer(Modifier.height(12.dp)); Text("QUICK COMMANDS", color = Color(0xFF42E8F4), fontSize = 12.sp, modifier = Modifier.fillMaxWidth()); Spacer(Modifier.height(7.dp))
                     Row(Modifier.fillMaxWidth()) { HudButton("DIAGNOSTICS", Modifier.weight(1f)) { runQuickCommand("run diagnostics") }; Spacer(Modifier.width(8.dp)); HudButton("STATUS", Modifier.weight(1f)) { runQuickCommand("system status") } }
@@ -231,6 +232,7 @@ class MainActivity : ComponentActivity() {
         standbyMode=prefs.getBoolean("standby",false)
         serviceStage=prefs.getString("service_stage",if(active)"ACTIVE" else "IDLE").orEmpty()
         lastHeard=prefs.getString("last_heard","").orEmpty()
+        lastCommand=prefs.getString("last_command","").orEmpty()
         lastResult=prefs.getString("last_result","").orEmpty()
         val battery = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = battery?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
