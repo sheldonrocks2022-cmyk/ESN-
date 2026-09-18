@@ -13,6 +13,7 @@ import android.provider.Settings
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 object JarvisCommandEngine {
@@ -35,6 +36,7 @@ object JarvisCommandEngine {
                 val q = command.replaceFirst(Regex("^(search the web( for)?|search for|google|look up) "), "").trim()
                 if (q.isBlank()) "Tell me what to search for." else { openUrl(context, "https://www.google.com/search?q=${Uri.encode(q)}"); "Searching for $q." }
             }
+            command.startsWith("play playlist ") || command.startsWith("play album ") || command.startsWith("play artist ") || command.startsWith("play song ") -> playOnSpotify(context, original)
             command == "shuffle spotify" -> "Shuffle can be changed in Spotify."
             command == "repeat spotify" -> "Repeat can be changed in Spotify."
             command.matches(Regex("^(play|put on) .+( on spotify)?$")) && command != "play music" && command != "play it" -> playOnSpotify(context, original)
@@ -145,10 +147,13 @@ object JarvisCommandEngine {
     private fun setReminder(context:Context,command:String):String {
         val r=Regex("\\bevery\\s+(day|daily|week|weekly|hour|hourly)\\b").find(command)
         if(r!=null){val msg=command.replaceFirst(Regex("^(remind me|set a reminder)( to)? "),"").replace(r.value,"").trim().ifBlank{"Reminder."};val interval=if(r.groupValues[1].startsWith("hour"))TimeUnit.HOURS.toMillis(1) else if(r.groupValues[1].startsWith("week"))TimeUnit.DAYS.toMillis(7) else TimeUnit.DAYS.toMillis(1);val id=(System.currentTimeMillis() and 0x7fffffff).toInt();JarvisReminderManager.recordRecurring(context,id,msg,System.currentTimeMillis()+interval,interval);return "Recurring reminder set."}
-        val m=Regex("in (\\d+)\\s*(seconds?|minutes?|hours?|days?)").find(command)?:return "Tell me when, for example in 10 minutes, every day, every hour, or every week."
+        val absolute=parseNaturalReminderTime(command)
+        if(absolute!=null){val clean=command.replaceFirst(Regex("^(remind me|set a reminder)( to)? "),"").replace(Regex("\\s+(today|tomorrow|tonight)(\\s+at\\s+.+)?$"),"").trim().ifBlank{"Reminder."};val id=(System.currentTimeMillis() and 0x7fffffff).toInt();val intent=Intent(context,JarvisReminderReceiver::class.java).putExtra("message",clean).putExtra("reminder_id",id);val pi=PendingIntent.getBroadcast(context,id,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE);(context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,absolute,pi);JarvisReminderManager.record(context,id,clean,absolute);return "Reminder set for ${SimpleDateFormat("EEE h:mm a",Locale.getDefault()).format(Date(absolute))}."}
+        val m=Regex("in (\\d+)\\s*(seconds?|minutes?|hours?|days?)").find(command)?:return "Tell me when, for example in 10 minutes, tomorrow at 8 AM, tonight at 9, every day, every hour, or every week."
         val amount=m.groupValues[1].toLong();val unit=m.groupValues[2];val ms=when{unit.startsWith("second")->TimeUnit.SECONDS.toMillis(amount);unit.startsWith("minute")->TimeUnit.MINUTES.toMillis(amount);unit.startsWith("hour")->TimeUnit.HOURS.toMillis(amount);else->TimeUnit.DAYS.toMillis(amount)}
         val clean=command.replaceFirst(Regex("^(remind me|set a reminder)( to)? "),"").replace(m.value,"").trim().ifBlank{"Reminder."};val id=(System.currentTimeMillis() and 0x7fffffff).toInt();val due=System.currentTimeMillis()+ms;val intent=Intent(context,JarvisReminderReceiver::class.java).putExtra("message",clean).putExtra("reminder_id",id);val pi=PendingIntent.getBroadcast(context,id,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE);(context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,due,pi);JarvisReminderManager.record(context,id,clean,due);return "Reminder set."
     }
+    private fun parseNaturalReminderTime(command:String):Long? { val day=Regex("\\b(today|tomorrow|tonight)\\b").find(command)?.groupValues?.get(1)?:return null;val tm=Regex("\\bat\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?\\b").find(command);val cal=Calendar.getInstance();if(day=="tomorrow")cal.add(Calendar.DAY_OF_YEAR,1);var hour=if(day=="tonight")21 else tm?.groupValues?.get(1)?.toIntOrNull()?:return null;val minute=tm?.groupValues?.get(2)?.toIntOrNull()?:0;val ap=tm?.groupValues?.get(3).orEmpty();if(ap=="pm"&&hour<12)hour+=12;if(ap=="am"&&hour==12)hour=0;cal.set(Calendar.HOUR_OF_DAY,hour.coerceIn(0,23));cal.set(Calendar.MINUTE,minute.coerceIn(0,59));cal.set(Calendar.SECOND,0);cal.set(Calendar.MILLISECOND,0);if(day=="today"&&cal.timeInMillis<=System.currentTimeMillis())return null;return cal.timeInMillis }
     private fun setAlarm(context: Context, command: String): String = openSystemIntent(context, Intent(android.provider.AlarmClock.ACTION_SET_ALARM).putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, "JARVIS alarm"), "alarm setup")
     private fun handleSms(context: Context, original: String): String { val text = original.replaceFirst(Regex("^(text|send a text|send sms|sms) "), "").trim(); if (text.isBlank()) return "Tell me what you'd like to text."; return openSystemIntent(context, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")).putExtra("sms_body", text), "text message") }
     private fun handleCall(context: Context, original: String): String {
@@ -156,7 +161,8 @@ object JarvisCommandEngine {
         if(who.isBlank())return "Tell me who you'd like to call."
         val digits=who.filter{it.isDigit()}
         if(digits.length>=7)return openSystemIntent(context,Intent(Intent.ACTION_DIAL,Uri.parse("tel:${Uri.encode(who)}")),"dialer")
-        val resolved=JarvisMessaging.resolveContact(context,who)?:return "I couldn't find one clear contact named $who. I won't dial a guessed number."
+        val resolved=JarvisMessaging.resolveContact(context,who)
+        if(resolved==null){val choices=JarvisMessaging.contactChoices(context,who).map{it.first}.distinct();return if(choices.size>1)"I found multiple contacts: ${choices.take(4).joinToString(", ")}. Say the full name you want." else "I couldn't find one clear contact named $who. I won't dial a guessed number."}
         JarvisContext.remember(context,"contact",resolved.first)
         return openSystemIntent(context,Intent(Intent.ACTION_DIAL,Uri.parse("tel:${Uri.encode(resolved.second)}")),resolved.first)
     }
