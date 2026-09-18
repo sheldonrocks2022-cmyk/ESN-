@@ -5,7 +5,7 @@ object JarvisAgent {
  fun execute(context:Context,goal:String):String{
   if(goal.isBlank())return "Tell me what you want me to accomplish."
   if(!JarvisAccessibilityService.hasAccess())return "Enable Phone Access so I can carry out multi-step tasks."
-  val plan=JarvisLocalPlanner.plan(goal,JarvisAgentTools.snapshot())
+  val plan=JarvisReasoning.plan(context,goal,JarvisAgentTools.snapshot())
   if(plan.isEmpty())return "I can see the screen, but I don't have a safe plan for that goal yet."
   val trace=mutableListOf<String>()
   for((index,step) in plan.take(MAX_STEPS).withIndex()){
