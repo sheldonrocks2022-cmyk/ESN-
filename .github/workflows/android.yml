@@ -33,7 +33,14 @@ jobs:
           export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+
+      - name: Vendor llama.cpp
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/app/src/main/cpp/llama.cpp"
+          git clone --depth 1 https://github.com/ggml-org/llama.cpp.git "$GITHUB_WORKSPACE/app/src/main/cpp/llama.cpp"
+          test -f "$GITHUB_WORKSPACE/app/src/main/cpp/llama.cpp/CMakeLists.txt"
+          echo "llama.cpp vendored successfully"
 
       - name: Build debug APK
         run: gradle clean assembleDebug --no-build-cache --rerun-tasks
