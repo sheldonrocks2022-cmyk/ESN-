@@ -12,6 +12,7 @@ object JarvisBrain {
         val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
         val previous=prefs.getString("last_user","").orEmpty()
         val note=prefs.getString("note","").orEmpty()
+        val recent=recentCommands(context)
         val response=when{
             lower in setOf("who are you","what are you")->"I'm JARVIS, your local Android assistant. My core functions run without an external AI service."
             lower.contains("what did i just say")||lower.contains("what was my last question")->if(previous.isBlank())"We haven't established conversation context yet." else "You said, $previous."
@@ -26,4 +27,5 @@ object JarvisBrain {
         prefs.edit().putString("last_user",text).putString("last_response",response).apply()
         return response
     }
+    private fun recentCommands(context:Context):List<String>{val raw=context.getSharedPreferences("jarvis_history",Context.MODE_PRIVATE).getString("items","").orEmpty();return raw.lines().filter{it.isNotBlank()}.mapNotNull{it.split("|",limit=3).getOrNull(1)}.takeLast(10)}
 }
