@@ -17,6 +17,9 @@ object JarvisScreenInspector {
     fun tapNumber(number:Int):String{val root=JarvisAccessibilityService.currentRoot()?:return "Phone Access is not enabled.";val items=mutableListOf<String>();collect(root,items,0);val target=items.getOrNull(number-1)?:return "I cannot find item $number.";return tapText(target)}
     fun scrollTo(target:String):String{repeat(5){if(hasText(target))return tapText(target);if(!JarvisAccessibilityService.scrollForward())return "I could not scroll farther."};return if(hasText(target))tapText(target) else "I could not find $target after scrolling."}
     fun typeInto(label:String,value:String):String=if(JarvisAccessibilityService.setTextByLabel(label,value))"Entered text in $label." else "I could not find an editable field for $label."
+    fun tapAny(vararg labels:String):Boolean { for(label in labels) if(hasText(label) && JarvisAccessibilityService.clickText(label)) return true; return false }
+    fun visibleText():List<String>{val root=JarvisAccessibilityService.currentRoot()?:return emptyList();val items=mutableListOf<String>();collect(root,items,0);return items}
+
     private fun find(node:AccessibilityNodeInfo,target:String,depth:Int):Boolean { if(depth>12)return false;val value=(node.text?.toString().orEmpty()+" "+node.contentDescription?.toString().orEmpty()).lowercase();if(value.contains(target))return true;for(i in 0 until node.childCount)if(node.getChild(i)?.let{find(it,target,depth+1)}==true)return true;return false }
     private fun collect(node: AccessibilityNodeInfo, out: MutableList<String>, depth: Int) {
         if (depth > 12 || out.size >= 40) return
