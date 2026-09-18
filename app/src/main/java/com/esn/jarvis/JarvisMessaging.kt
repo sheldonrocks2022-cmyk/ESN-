@@ -24,7 +24,7 @@ object JarvisMessaging {
         val spokenRecipient = match.groupValues[1].trim(); val recipient = alias(context, spokenRecipient); val body = match.groupValues[2].trim()
         JarvisContext.remember(context,"contact",recipient)
         if (recipient.isBlank() || body.isBlank()) return "Tell me who to message and what to say."
-        val number = if (recipient.count { it.isDigit() } >= 7) recipient.filter { it.isDigit() || it == '+' } else findMobileNumber(context, recipient) ?: return "I couldn't find a phone number for $recipient in your contacts."
+        val number = if (recipient.count { it.isDigit() } >= 7) recipient.filter { it.isDigit() || it == '+' } else resolveContact(context, recipient)?.second ?: return "I couldn't find one clear contact named $recipient. Say the full contact name so I don't guess."
         return try {
             @Suppress("DEPRECATION") val sms = SmsManager.getDefault()
             if (body.length > 150) sms.sendMultipartTextMessage(number, null, sms.divideMessage(body), null, null) else sms.sendTextMessage(number, null, body, null, null)
@@ -32,7 +32,7 @@ object JarvisMessaging {
         } catch (t: Throwable) { "I couldn't send that message: ${t.javaClass.simpleName}." }
     }
 
-    fun resolveContact(context:Context,name:String):Pair<String,String>? {
+    fun contactChoices(context:Context,name:String):List<Pair<String,String>> {\n        if(context.checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)return emptyList()\n        val wanted=alias(context,name).trim();if(wanted.isBlank())return emptyList()\n        val out=mutableListOf<Pair<String,String>>();val projection=arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER,ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)\n        context.contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,projection,null,null,null)?.use{c->val ni=c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);val di=c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);while(c.moveToNext()){val d=c.getString(di).orEmpty().trim();val n=c.getString(ni).orEmpty().trim();if(n.isNotBlank()&&(d.equals(wanted,true)||d.contains(wanted,true)||wanted.contains(d,true)))out+=d to n}}\n        return out.distinctBy{it.first.lowercase()+":"+it.second.filter(Char::isDigit)}\n    }\n\n    fun resolveContact(context:Context,name:String):Pair<String,String>? {
         if(context.checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)return null
         val wanted=alias(context,name).trim()
         if(wanted.isBlank())return null
