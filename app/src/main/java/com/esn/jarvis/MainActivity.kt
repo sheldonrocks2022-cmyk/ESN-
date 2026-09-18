@@ -95,6 +95,8 @@ class MainActivity : ComponentActivity() {
         lastCrash = getSharedPreferences("jarvis", MODE_PRIVATE).getString("last_crash", "").orEmpty()
         requestPermissionsIfNeeded()
         refreshStatus()
+        val persisted=getSharedPreferences("jarvis_history",MODE_PRIVATE).getString("items","").orEmpty().lines().filter{it.isNotBlank()}.takeLast(8)
+        commandHistory.addAll(persisted)
         ownerVoiceEnrolled=OwnerVoiceProfile.isEnrolled(this)
         loadVoices()
         setContent { JarvisScreen() }
