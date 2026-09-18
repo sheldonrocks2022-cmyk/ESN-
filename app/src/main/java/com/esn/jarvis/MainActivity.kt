@@ -138,7 +138,7 @@ class MainActivity : ComponentActivity() {
             Surface(Modifier.fillMaxSize(), color = Color(0xFF030B16)) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column { Text("JARVIS", color = Color(0xFF7DEFF2), fontSize = 30.sp); Text("PERSONAL AI CONTROL SYSTEM", color = Color(0xFF7891AA), fontSize = 10.sp) }
+                        Column { Text("JARVIS", color = Color(0xFF7DEFF2), fontSize = 30.sp); Text("PERSONAL AI CONTROL SYSTEM • v${BuildConfig.VERSION_NAME}", color = Color(0xFF7891AA), fontSize = 10.sp) }
                         Column(horizontalAlignment = Alignment.End) { Text(clockText, color = Color(0xFF42E8F4), fontSize = 16.sp); Text(if (active) "ONLINE" else "STANDBY", color = if (active) Color(0xFF7DEFF2) else Color(0xFF7891AA), fontSize = 10.sp) }
                     }
                     Spacer(Modifier.height(10.dp)); HudStatusStrip(active); Spacer(Modifier.height(8.dp))
@@ -226,6 +226,7 @@ class MainActivity : ComponentActivity() {
     @Composable private fun HudButton(label: String, modifier: Modifier, onClick: () -> Unit) { OutlinedButton(onClick = onClick, modifier = modifier.height(44.dp).border(1.dp, Color(0xFF164B68), RoundedCornerShape(10.dp)), shape = RoundedCornerShape(10.dp)) { Text(label, color = Color(0xFF9FEFF2), fontSize = 11.sp) } }
 
     private fun loadVoices(){val prefs=getSharedPreferences("jarvis",MODE_PRIVATE);selectedVoice=prefs.getString("tts_voice","").orEmpty();voiceRate=prefs.getFloat("speech_rate",0.76f);voicePitch=prefs.getFloat("speech_pitch",0.68f);voiceLoader=TextToSpeech(this){status->if(status==TextToSpeech.SUCCESS){voiceNames=voiceLoader?.voices?.filter{it.locale?.language==Locale.ENGLISH.language&&!it.isNetworkConnectionRequired}?.sortedBy{it.name}?.map{it.name}?.take(3).orEmpty()}}}
+    private fun selectGender(gender:String){selectedVoice="";getSharedPreferences("jarvis",MODE_PRIVATE).edit().putString("voice_gender",gender).remove("tts_voice").apply();message="${gender.replaceFirstChar{it.uppercase()}} voice selected. Deactivate and reactivate JARVIS to apply."}
     private fun selectVoice(name:String){selectedVoice=name;getSharedPreferences("jarvis",MODE_PRIVATE).edit().putString("tts_voice",name).apply();message="Voice selected. Restart JARVIS voice to apply."}
     private fun saveVoiceTuning(){getSharedPreferences("jarvis",MODE_PRIVATE).edit().putFloat("speech_rate",voiceRate).putFloat("speech_pitch",voicePitch).apply()}
 

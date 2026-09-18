@@ -20,12 +20,6 @@ object JarvisNaturalCommandRouter {
         return executeSingle(context,text) ?: if (looksConversational(text)) JarvisBrain.respond(context, raw) else null
     }
 
-    private fun executePart(context:Context,text:String):String {
-        val alias=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).getString(text,"").orEmpty()
-        if(alias.isNotBlank()) return alias.split(Regex("\\s+(?:and then|then|after that)\\s+")).filter{it.isNotBlank()}.take(8).joinToString(" ") { executePart(context,it.trim()) }
-        return if(JarvisMessaging.canHandle(text)) JarvisMessaging.execute(context,text) else executeSingle(context,text) ?: JarvisCommandEngine.execute(context,text)
-    }
-
     private fun looksConversational(text:String):Boolean =
         text.startsWith("who ") || text.startsWith("what ") || text.startsWith("why ") || text.startsWith("how ") ||
         text.startsWith("when ") || text.startsWith("where ") || text.startsWith("can you explain") ||
@@ -114,7 +108,7 @@ object JarvisNaturalCommandRouter {
         else -> null
     }
 
-    private fun repeatLast(context:Context):String{val raw=context.getSharedPreferences("jarvis_history",Context.MODE_PRIVATE).getString("items","").orEmpty();val last=raw.lines().filter{it.isNotBlank()}.lastOrNull()?.split("|",limit=3)?.getOrNull(1).orEmpty();return if(last.isBlank()||last=="do that again"||last=="repeat that command")"I don't have a previous command to repeat." else JarvisCommandEngine.execute(context,last)}
+    private fun repeatLast(context:Context):String{val raw=context.getSharedPreferences("jarvis_history",Context.MODE_PRIVATE).getString("items","").orEmpty();val last=raw.lines().filter{it.isNotBlank()}.lastOrNull()?.split("|",limit=3)?.getOrNull(1).orEmpty();return if(last.isBlank()||last=="do that again"||last=="repeat that command")"I don't have a previous command to repeat." else execute(context,last) ?: JarvisCommandEngine.execute(context,last)}
     private fun messageCurrentContact(context:Context,text:String):String{val contact=JarvisContext.recall(context,"contact");if(contact.isBlank())return "I don't have a recent contact in context.";val body=text.replaceFirst(Regex("^(tell|message) (him|her|them)\\s*"),"").trim();if(body.isBlank())return "Tell me what you want to say.";return JarvisMessaging.execute(context,"send a message to $contact saying $body")}
     private fun callCurrentContact(context:Context):String{val contact=JarvisContext.recall(context,"contact");return if(contact.isBlank())"I don't have a recent contact in context." else JarvisCommandEngine.execute(context,"call $contact")}
 
