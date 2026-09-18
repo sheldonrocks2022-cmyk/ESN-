@@ -6,7 +6,7 @@ import android.net.Uri
 
 object JarvisDiscordPhoneControl {
  private const val PKG="com.discord"
- private fun open(c:Context,g:String=""):Boolean=try{val i=if(g.isNotBlank())Intent(Intent.ACTION_VIEW,Uri.parse("https://discord.com/channels/"+g)).setPackage(PKG) else c.packageManager.getLaunchIntentForPackage(PKG);if(i==null)return false;i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);c.startActivity(i);true}catch(_:Exception){false}
+ private fun open(c:Context,g:String=""):Boolean { return try { val i=if(g.isNotBlank()) Intent(Intent.ACTION_VIEW,Uri.parse("https://discord.com/channels/"+g)).setPackage(PKG) else c.packageManager.getLaunchIntentForPackage(PKG); if(i==null) false else { i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); c.startActivity(i); true } } catch(_:Exception){ false } }
  fun openServer(c:Context,id:String):String{if(id.isBlank()||id.any{!it.isDigit()})return "Give me a valid Discord server ID.";c.getSharedPreferences("jarvis_discord_phone",0).edit().putString("guild_id",id).apply();return if(open(c,id))"Opening your Discord server as your logged-in account." else "I could not open Discord."}
  fun tap(c:Context,label:String):String=if(!JarvisAccessibilityService.hasAccess())"Enable Phone Access for JARVIS first." else JarvisScreenInspector.tapText(label)
  fun ban(c:Context,t:String)=arm(c,"ban",t)
