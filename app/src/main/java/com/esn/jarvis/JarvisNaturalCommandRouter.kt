@@ -13,14 +13,16 @@ object JarvisNaturalCommandRouter {
         if (text.isBlank()) return "I didn't catch that."
         val alias=JarvisAliases.resolve(context,text)
         if(alias.isNotBlank()){if(!seen.add(text))return "Routine stopped because a loop was detected.";return executeSafe(context,alias,depth+1,seen)}
-        val parts = text.split(Regex("\\s+(?:and then|then)\\s+")).map { it.trim() }.filter { it.isNotBlank() }
+        val routine=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).getString(text,"").orEmpty()
+        if(routine.isNotBlank()){if(!seen.add("routine:$text"))return "Routine stopped because a loop was detected.";return executeSafe(context,routine,depth+1,seen)}
+        val parts = text.split(Regex("\\s+(?:and then|then|after that)\\s+")).map { it.trim() }.filter { it.isNotBlank() }
         if (parts.size in 2..6) return parts.joinToString(" ") { executePart(context,it) }
         return executeSingle(context,text) ?: if (looksConversational(text)) JarvisBrain.respond(context, raw) else null
     }
 
     private fun executePart(context:Context,text:String):String {
         val alias=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).getString(text,"").orEmpty()
-        if(alias.isNotBlank()) return alias.split(" then ").filter{it.isNotBlank()}.joinToString(" ") { executePart(context,it.trim()) }
+        if(alias.isNotBlank()) return alias.split(Regex("\\s+(?:and then|then|after that)\\s+")).filter{it.isNotBlank()}.take(8).joinToString(" ") { executePart(context,it.trim()) }
         return if(JarvisMessaging.canHandle(text)) JarvisMessaging.execute(context,text) else executeSingle(context,text) ?: JarvisCommandEngine.execute(context,text)
     }
 
