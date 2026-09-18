@@ -22,7 +22,7 @@ object JarvisOnDeviceReasoner:JarvisReasoningEngine{
   return if(score>=2)listOf(AgentStep.Tap(target)) else emptyList()
  }
  private fun buildPrompt(goal:String,state:AgentSnapshot,history:String)= "Goal: "+goal+"\nPackage: "+state.packageName+"\nVisible: "+state.text.joinToString(" | ").take(5000)+"\nRecent: "+history.takeLast(1500)+"\nReturn only lines: TAP <label>, TYPE <text>, BACK, or SCROLL."
- private fun parsePlan(raw:String):List<AgentStep>=raw.lineSequence().mapNotNull{line->val s=line.trim();when{ s.startsWith("TAP ",true)->AgentStep.Tap(s.substring(4).trim());s.startsWith("TYPE ",true)->AgentStep.Type(s.substring(5).trim());s.equals("BACK",true)->AgentStep.Back;s.equals("SCROLL",true)->AgentStep.Scroll;else->null}}.take(12).toList()
+ private fun parsePlan(raw:String):List<AgentStep> = raw.lineSequence().mapNotNull { line ->\n  val s=line.trim()\n  when {\n   s.startsWith("TAP ",true) -> AgentStep.Tap(s.substring(4).trim())\n   s.startsWith("TYPE ",true) -> AgentStep.Type(s.substring(5).trim())\n   s.equals("BACK",true) -> AgentStep.Back\n   s.equals("SCROLL",true) -> AgentStep.Scroll\n   else -> null\n  }\n }.take(12).toList()
 }
 object JarvisReasoning{
  @Volatile var engine:JarvisReasoningEngine=JarvisOnDeviceReasoner
