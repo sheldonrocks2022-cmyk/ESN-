@@ -16,7 +16,7 @@ object JarvisNaturalCommandRouter {
         val routine=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).getString(text,"").orEmpty()
         if(routine.isNotBlank()){if(!seen.add("routine:$text"))return "Routine stopped because a loop was detected.";return executeSafe(context,routine,depth+1,seen)}
         val parts = text.split(Regex("\\s+(?:and then|then|after that)\\s+")).map { it.trim() }.filter { it.isNotBlank() }
-        if (parts.size in 2..6) return parts.joinToString(" ") { executePart(context,it) }
+        if (parts.size in 2..6) return parts.joinToString(" ") { executeSafe(context,it,depth+1,seen) ?: JarvisCommandEngine.execute(context,it) }
         return executeSingle(context,text) ?: if (looksConversational(text)) JarvisBrain.respond(context, raw) else null
     }
 
@@ -42,6 +42,8 @@ object JarvisNaturalCommandRouter {
         text.startsWith("create routine ") && text.contains(" to ") -> saveNamedRoutine(context,text)
         text == "list routines" || text == "what are my routines" -> listRoutines(context)
         text.startsWith("delete routine ") -> deleteRoutine(context,text.removePrefix("delete routine ").trim())
+        text.startsWith("edit routine ") && text.contains(" to ") -> saveNamedRoutine(context,text.replaceFirst("edit routine ","create routine "))
+        text.startsWith("run routine ") -> execute(context,text.removePrefix("run routine ").trim())
         text == "help" || text == "what can you do" || text == "what can i say" -> "I can open apps, send messages, control supported phone functions, read notifications, inspect your screen, run routines, chain commands, and maintain recent conversation context."
         text == "are you there" || text == "you there" || text == "hello" || text == "hey" -> "At your service."
         text.contains("what am i looking at") || text.contains("what is on my screen") || text.contains("read this screen") || text.contains("describe my screen") -> JarvisScreenInspector.describeScreen()
