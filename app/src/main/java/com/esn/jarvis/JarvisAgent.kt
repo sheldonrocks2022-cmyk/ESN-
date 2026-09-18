@@ -11,12 +11,12 @@ object JarvisAgent {
   for((index,step) in plan.take(MAX_STEPS).withIndex()){
    val before=JarvisAgentTools.snapshot()
    val result=JarvisAgentTools.execute(context,step)
-   val after=JarvisAgentTools.snapshot()
+   Thread.sleep(350)\n   val after=JarvisAgentTools.snapshot()
    trace+="step="+(index+1)+" "+step+" => "+result
    if(!result.ok)return "I stopped at step "+(index+1)+": "+result.message
    if(step.requiresChange && before.signature==after.signature)return "I stopped because the screen did not change after "+step.describe()+"."
   }
   JarvisAgentMemory.record(context,goal,trace)
-  return "Goal completed through "+plan.size.coerceAtMost(MAX_STEPS)+" verified agent step"+if(plan.size==1) "." else "s."
+  return "I stopped after "+MAX_STEPS+" verified steps so the task could not loop indefinitely."
  }
 }
