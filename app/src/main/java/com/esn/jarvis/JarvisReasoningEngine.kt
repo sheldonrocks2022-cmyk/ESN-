@@ -10,6 +10,8 @@ interface JarvisReasoningEngine{
 }
 object JarvisOnDeviceReasoner:JarvisReasoningEngine{
  override fun plan(context:Context,goal:String,state:AgentSnapshot,history:String):List<AgentStep>{
+  val modelPlan=JarvisModelRuntime.complete(context,buildPrompt(goal,state,history))?.let(::parsePlan).orEmpty()
+  if(modelPlan.isNotEmpty())return modelPlan
   val plan=JarvisLocalPlanner.plan(goal,state)
   if(plan.isNotEmpty())return plan
   val g=goal.lowercase()
@@ -19,6 +21,8 @@ object JarvisOnDeviceReasoner:JarvisReasoningEngine{
   val score=target.lowercase().split(Regex("\\W+")).count{it in words}
   return if(score>=2)listOf(AgentStep.Tap(target)) else emptyList()
  }
+ private fun buildPrompt(goal:String,state:AgentSnapshot,history:String)= "Goal: "+goal+"\nPackage: "+state.packageName+"\nVisible: "+state.text.joinToString(" | ").take(5000)+"\nRecent: "+history.takeLast(1500)+"\nReturn only lines: TAP <label>, TYPE <text>, BACK, or SCROLL."
+ private fun parsePlan(raw:String):List<AgentStep>=raw.lineSequence().mapNotNull{line->val s=line.trim();when{ s.startsWith("TAP ",true)->AgentStep.Tap(s.substring(4).trim());s.startsWith("TYPE ",true)->AgentStep.Type(s.substring(5).trim());s.equals("BACK",true)->AgentStep.Back;s.equals("SCROLL",true)->AgentStep.Scroll;else->null}}.take(12).toList()
 }
 object JarvisReasoning{
  @Volatile var engine:JarvisReasoningEngine=JarvisOnDeviceReasoner
