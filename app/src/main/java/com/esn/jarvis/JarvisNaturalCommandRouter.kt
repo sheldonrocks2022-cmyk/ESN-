@@ -102,6 +102,8 @@ object JarvisNaturalCommandRouter {
         text == "go to settings" || text == "take me to settings" -> open(context, Settings.ACTION_SETTINGS, "Settings opened.")
         text == "go home" || text == "take me home" -> if (JarvisAccessibilityService.home()) "Going home." else "Phone Access is not enabled."
         text == "go back" || text == "take me back" -> if (JarvisAccessibilityService.back()) "Going back." else "Phone Access is not enabled."
+        text in setOf("use male voice","switch to male voice","male voice") -> {context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putString("voice_gender","male").remove("tts_voice").apply();"Male voice selected. Restart JARVIS to apply it."}
+        text in setOf("use female voice","switch to female voice","female voice") -> {context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putString("voice_gender","female").remove("tts_voice").apply();"Female voice selected. Restart JARVIS to apply it."}
         text.contains("speak slower") || text.contains("talk slower") -> setSpeechRate(context,-0.08f,"Speech speed reduced.")
         text.contains("speak faster") || text.contains("talk faster") -> setSpeechRate(context,0.08f,"Speech speed increased.")
         text.contains("normal speech") || text.contains("normal speed") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putFloat("speech_rate",0.76f).apply(); "Speech speed restored." }
