@@ -11,4 +11,6 @@ object JarvisDiagnostics {
   val issues=security.filter{it.second in setOf("OFF","PERMISSION NEEDED","NOT ENROLLED")}
   return "Diagnostics. Speech recognition: "+(if(speech)"ready" else "unavailable")+". Voice engine: "+stage+". Bluetooth: "+(if(bluetooth)"connected" else "not connected")+". Accessibility: "+(if(JarvisAccessibilityService.hasAccess())"ready" else "off")+". "+(if(issues.isEmpty())"Core systems report ready." else "Attention: "+issues.joinToString(", "){it.first+" "+it.second}+".")
  }
+ fun recover(context:Context):String{val p=context.getSharedPreferences("jarvis",Context.MODE_PRIVATE);if(p.getBoolean("emergency_shutdown",false))return "Emergency shutdown is active. Recovery will not override it.";return try{val i=android.content.Intent(context,JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_START);context.startService(i);p.edit().putString("service_stage","RECOVERY_REQUESTED").apply();"Recovery requested. Voice service is restarting; Accessibility and Notification Access still require Android permission if disabled."}catch(e:Throwable){"Recovery could not restart the voice service: "+e.javaClass.simpleName}}
 }
+
