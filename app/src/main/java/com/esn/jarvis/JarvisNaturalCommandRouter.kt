@@ -30,7 +30,8 @@ object JarvisNaturalCommandRouter {
         text.startsWith("who ") || text.startsWith("what ") || text.startsWith("why ") || text.startsWith("how ") ||
         text.startsWith("when ") || text.startsWith("where ") || text.startsWith("can you explain") ||
         text.startsWith("tell me about") || text.startsWith("remember that ") || text.contains("thank you") ||
-        text.contains("what do you remember")
+        text.contains("what do you remember") || text.contains("recent commands") || text.contains("last command") ||
+        text.contains("what did i do recently") || text.contains("what have i done recently") || text.contains("context")
 
     private fun executeSingle(context: Context, text: String): String? = when {
         text.startsWith("create alias ") && text.contains(" for ") -> { val name=text.substringAfter("create alias ").substringBefore(" for ").trim(); val command=text.substringAfter(" for ").trim(); JarvisAliases.save(context,name,command) }
