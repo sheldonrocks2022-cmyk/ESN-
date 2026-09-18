@@ -39,6 +39,8 @@ object JarvisNaturalCommandRouter {
         text.startsWith("delete alias ") -> JarvisAliases.delete(context,text.removePrefix("delete alias ").trim())
         text == "clear aliases" -> JarvisAliases.clear(context)
         text == "clear local context" || text == "forget recent context" -> { JarvisContext.clear(context); "Recent local context cleared." }
+        text in setOf("read all notifications aloud","turn on notification reading","announce notifications") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("read_all_notifications",true).apply(); "I will read incoming notifications aloud." }
+        text in setOf("stop reading notifications aloud","turn off notification reading","silence notifications") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("read_all_notifications",false).apply(); "Automatic notification reading is off." }
         text.startsWith("when i say ") && text.contains(" do ") -> saveRoutine(context,text)
         text.startsWith("create routine ") && text.contains(" to ") -> saveNamedRoutine(context,text)
         text == "list routines" || text == "what are my routines" -> listRoutines(context)
