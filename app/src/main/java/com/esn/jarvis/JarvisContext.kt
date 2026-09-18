@@ -8,5 +8,9 @@ object JarvisContext {
     fun recall(context:Context,key:String)=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(key,"").orEmpty()
     fun rememberCommand(context:Context,command:String,result:String){val p=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);p.edit().putString("previous_command",p.getString("current_command","").orEmpty()).putString("current_command",command).putString("current_result",result).putLong("context_time",System.currentTimeMillis()).apply()}
     fun recent(context:Context):String{val p=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);val current=p.getString("current_command","").orEmpty();val previous=p.getString("previous_command","").orEmpty();return listOf(previous,current).filter{it.isNotBlank()}.joinToString(" then ")}
+    fun saveDraft(context:Context,recipient:String,body:String){val p=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);p.edit().putString("draft_recipient",recipient).putString("draft_body",body).apply()}
+    fun draftRecipient(context:Context)=recall(context,"draft_recipient")
+    fun draftBody(context:Context)=recall(context,"draft_body")
+    fun clearDraft(context:Context){context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().remove("draft_recipient").remove("draft_body").apply()}
     fun clear(context:Context){context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().clear().apply()}
 }
