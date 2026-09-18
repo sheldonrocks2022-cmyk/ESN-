@@ -108,7 +108,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             checkpoint("EXECUTING")
             val chained=command.contains(Regex("\\s+(?:and then|then)\\s+"))
             val result=if(chained)JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command)else if(JarvisMessaging.canHandle(command))JarvisMessaging.execute(this,command)else JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command)
-            getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_command",command).putString("last_result",result).apply();appendHistory(command,result)
+            getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_command",command).putString("last_result",result).apply();appendHistory(command,result);JarvisContext.rememberCommand(this,command,result)
             checkpoint("RESULT:${result.take(100)}")
             speak(result)
         }catch(t:Throwable){
