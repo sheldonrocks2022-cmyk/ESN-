@@ -81,6 +81,8 @@ class MainActivity : ComponentActivity() {
     private var voiceLoader: TextToSpeech? = null
     private val commandHistory = mutableStateListOf<String>()
 
+    private val deviceAuthLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r -> if(r.resultCode==android.app.Activity.RESULT_OK){getSharedPreferences("jarvis",MODE_PRIVATE).edit().putBoolean("emergency_shutdown",false).apply();message="Device authentication accepted. Emergency lock cleared; activate JARVIS when ready."}else message="Device authentication was not completed." }
+
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result[Manifest.permission.RECORD_AUDIO] == true) message = "Microphone ready. JARVIS is awaiting activation."
         else message = "Microphone permission is required for voice commands."
@@ -256,8 +258,9 @@ class MainActivity : ComponentActivity() {
 
     private fun toggleVoice() {
         if (!active && getSharedPreferences("jarvis", MODE_PRIVATE).getBoolean("emergency_shutdown", false)) {
-            getSharedPreferences("jarvis", MODE_PRIVATE).edit().putBoolean("emergency_shutdown", false).apply()
-            message = "Emergency lock cleared locally. Activate JARVIS again when ready."
+            val km=getSystemService(android.app.KeyguardManager::class.java)
+            val auth=km.createConfirmDeviceCredentialIntent("JARVIS Security","Authenticate to clear emergency shutdown.")
+            if(auth!=null){deviceAuthLauncher.launch(auth);message="Android authentication required to clear emergency shutdown."}else message="Set a secure Android screen lock before clearing emergency shutdown."
             return
         }
         if (!active && !hasMicPermission()) { requestPermissionsIfNeeded(); return }
