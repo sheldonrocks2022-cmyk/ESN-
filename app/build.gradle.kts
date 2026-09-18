@@ -10,9 +10,12 @@ android {
         applicationId = "com.esn.jarvis"
         minSdk = 26
         targetSdk = 35
-        versionCode = 235
-        versionName = "0.3.235"
+        ndk { abiFilters += listOf("arm64-v8a") }
+        externalNativeBuild { cmake { arguments += "-DANDROID_STL=c++_shared" } }
+        versionCode = 236
+        versionName = "0.3.236"
     }
+    externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
     buildTypes { release { isMinifyEnabled = false; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro") } }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
