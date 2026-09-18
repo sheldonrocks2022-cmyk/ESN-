@@ -85,8 +85,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             pendingSpeech=null
             try { tts?.stop() } catch (_:Throwable) {}
             speaking=false
-            checkpoint("CODE101_MEDIA_UNTOUCHED")
-            handler.postDelayed({if(active)startRecognition()},250L)
+            checkpoint("CODE101_ACK")
+            speak("Standing by.")
             return
         }
         if(standby){
