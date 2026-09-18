@@ -10,6 +10,7 @@ object JarvisAutomationEngine {
         return "Automation saved for $event."
     }
     fun fire(context:Context,event:String):String?{
+        if(!context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).getBoolean("active",false))return null
         val command=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(event.lowercase(),"").orEmpty()
         if(command.isBlank())return null
         return JarvisNaturalCommandRouter.execute(context,command)?:JarvisCommandEngine.execute(context,command)
