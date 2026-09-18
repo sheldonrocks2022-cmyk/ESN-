@@ -102,7 +102,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             checkpoint("EXECUTING")
             val chained=command.contains(Regex("\\s+(?:and then|then)\\s+"))
             val result=if(chained)JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command)else if(JarvisMessaging.canHandle(command))JarvisMessaging.execute(this,command)else JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command)
-            getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_command",command).putString("last_result",result).apply()
+            getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_command",command).putString("last_result",result).apply();appendHistory(command,result)
             checkpoint("RESULT:${result.take(100)}")
             speak(result)
         }catch(t:Throwable){
@@ -110,6 +110,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             speak("I couldn't complete that command.")
         }
     }
+    private fun appendHistory(command:String,result:String){val p=getSharedPreferences("jarvis_history",MODE_PRIVATE);val old=p.getString("items","").orEmpty().lines().filter{it.isNotBlank()}.takeLast(29).toMutableList();old.add("${System.currentTimeMillis()}|$command|${result.replace("|","/").replace("\n"," ")}");p.edit().putString("items",old.joinToString("\n")).apply()}
     private fun deactivate(){active=false;starting=false;handler.removeCallbacksAndMessages(null);try{recognizer?.cancel();recognizer?.destroy()}catch(_:Throwable){};recognizer=null;try{tts?.stop();tts?.shutdown()}catch(_:Throwable){};tts=null;ttsReady=false;setActive(false);checkpoint("STOP_COMPLETE");try{ServiceCompat.stopForeground(this,ServiceCompat.STOP_FOREGROUND_REMOVE)}catch(_:Throwable){};stopSelf()}
     private fun setActive(value:Boolean){getSharedPreferences(PREFS,MODE_PRIVATE).edit().putBoolean(ACTIVE,value).commit()}
     private fun checkpoint(stage:String){getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("service_stage",stage).putLong("service_stage_time",System.currentTimeMillis()).commit()}
