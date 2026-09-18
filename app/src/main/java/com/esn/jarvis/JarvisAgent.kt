@@ -11,7 +11,8 @@ object JarvisAgent {
   for((index,step) in plan.take(MAX_STEPS).withIndex()){
    val before=JarvisAgentTools.snapshot()
    val result=JarvisAgentTools.execute(context,step)
-   Thread.sleep(350)\n   val after=JarvisAgentTools.snapshot()
+   Thread.sleep(350)
+   val after=JarvisAgentTools.snapshot()
    trace+="step="+(index+1)+" "+step+" => "+result
    if(!result.ok)return "I stopped at step "+(index+1)+": "+result.message
    if(step.requiresChange && before.signature==after.signature)return "I stopped because the screen did not change after "+step.describe()+"."
