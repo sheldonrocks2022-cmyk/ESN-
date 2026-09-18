@@ -18,7 +18,7 @@ class JarvisReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val message = intent.getStringExtra(EXTRA_MESSAGE).orEmpty().ifBlank { "Your JARVIS reminder is due." }
         val reminderId=intent.getIntExtra("reminder_id",-1)
-        if(reminderId>=0)JarvisReminderManager.completed(context,reminderId)
+        if(reminderId>=0&&!intent.getBooleanExtra("recurring",false))JarvisReminderManager.completed(context,reminderId)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(
