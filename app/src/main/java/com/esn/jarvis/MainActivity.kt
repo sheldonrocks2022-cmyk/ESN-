@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,6 +72,11 @@ class MainActivity : ComponentActivity() {
     private var lastResult by mutableStateOf("")
     private var lastCommand by mutableStateOf("")
     private var standbyMode by mutableStateOf(false)
+    private var voiceNames by mutableStateOf<List<String>>(emptyList())
+    private var selectedVoice by mutableStateOf("")
+    private var voiceRate by mutableStateOf(0.76f)
+    private var voicePitch by mutableStateOf(0.68f)
+    private var voiceLoader: TextToSpeech? = null
     private val commandHistory = mutableStateListOf<String>()
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -84,6 +91,7 @@ class MainActivity : ComponentActivity() {
         lastCrash = getSharedPreferences("jarvis", MODE_PRIVATE).getString("last_crash", "").orEmpty()
         requestPermissionsIfNeeded()
         refreshStatus()
+        loadVoices()
         setContent { JarvisScreen() }
     }
 
@@ -167,6 +175,8 @@ class MainActivity : ComponentActivity() {
                     Text("Say: list routines • list aliases • diagnostics • speak faster/slower",color=Color(0xFF7891AA),fontSize=10.sp)
                     Spacer(Modifier.height(8.dp))
                     Text("LIVE COMMAND TRACE",color=Color(0xFF42E8F4),fontSize=12.sp);if(lastHeard.isNotBlank())Text("HEARD  •  $lastHeard",color=Color(0xFFB8C7D9),fontSize=11.sp);if(lastCommand.isNotBlank())Text("UNDERSTOOD •  $lastCommand",color=Color(0xFFB8C7D9),fontSize=11.sp);Text("ACTION •  ${serviceStage.take(36)}",color=Color(0xFF9FB3C7),fontSize=11.sp);if(lastResult.isNotBlank())Text("RESULT •  $lastResult",color=Color(0xFF9FB3C7),fontSize=11.sp)}};Spacer(Modifier.height(12.dp))}
+                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF071A2B)), shape = RoundedCornerShape(16.dp)) { Column(Modifier.padding(15.dp)) { Text("VOICE MATRIX", color = Color(0xFF42E8F4), fontSize = 12.sp); Text(if(selectedVoice.isBlank()) "AUTO • LOCAL ENGLISH" else selectedVoice.take(42), color = Color(0xFFD6E2F0), fontSize = 11.sp); Spacer(Modifier.height(7.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { voiceNames.take(3).forEachIndexed { index, name -> HudButton("VOICE ${index+1}", Modifier.weight(1f)) { selectVoice(name) } } }; Spacer(Modifier.height(8.dp)); Text("SPEED  ${(voiceRate*100).toInt()}%",color=Color(0xFF7891AA),fontSize=10.sp); Slider(value=voiceRate,onValueChange={voiceRate=it;saveVoiceTuning()},valueRange=0.55f..1.15f); Text("PITCH  ${(voicePitch*100).toInt()}%",color=Color(0xFF7891AA),fontSize=10.sp); Slider(value=voicePitch,onValueChange={voicePitch=it;saveVoiceTuning()},valueRange=0.55f..1.25f); Text("Changes apply the next time the voice engine starts.",color=Color(0xFF60778E),fontSize=9.sp) } }
+                    Spacer(Modifier.height(12.dp))
                     Button(onClick = { toggleVoice() }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A3550))) { Text(if (active) "DEACTIVATE JARVIS" else "ACTIVATE JARVIS", color = Color(0xFF7DEFF2)) }
                     Spacer(Modifier.height(12.dp)); Text("QUICK COMMANDS", color = Color(0xFF42E8F4), fontSize = 12.sp, modifier = Modifier.fillMaxWidth()); Spacer(Modifier.height(7.dp))
                     Row(Modifier.fillMaxWidth()) { HudButton("DIAGNOSTICS", Modifier.weight(1f)) { runQuickCommand("run diagnostics") }; Spacer(Modifier.width(8.dp)); HudButton("STATUS", Modifier.weight(1f)) { runQuickCommand("system status") } }
@@ -194,6 +204,10 @@ class MainActivity : ComponentActivity() {
     @Composable private fun StatusChip(label: String, value: String, modifier: Modifier) { Column(modifier.border(1.dp, Color(0xFF123B54), RoundedCornerShape(8.dp)).padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(label, color = Color(0xFF5E7A90), fontSize = 8.sp); Text(value, color = Color(0xFF7DEFF2), fontSize = 9.sp) } }
     @Composable private fun TelemetryRow(label: String, value: String) { Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(label, color = Color(0xFF71879B), fontSize = 11.sp); Text(value, color = Color(0xFFD6E2F0), fontSize = 11.sp) } }
     @Composable private fun HudButton(label: String, modifier: Modifier, onClick: () -> Unit) { OutlinedButton(onClick = onClick, modifier = modifier.height(44.dp).border(1.dp, Color(0xFF164B68), RoundedCornerShape(10.dp)), shape = RoundedCornerShape(10.dp)) { Text(label, color = Color(0xFF9FEFF2), fontSize = 11.sp) } }
+
+    private fun loadVoices(){val prefs=getSharedPreferences("jarvis",MODE_PRIVATE);selectedVoice=prefs.getString("tts_voice","").orEmpty();voiceRate=prefs.getFloat("speech_rate",0.76f);voicePitch=prefs.getFloat("speech_pitch",0.68f);voiceLoader=TextToSpeech(this){status->if(status==TextToSpeech.SUCCESS){voiceNames=voiceLoader?.voices?.filter{it.locale?.language==Locale.ENGLISH.language&&!it.isNetworkConnectionRequired}?.sortedBy{it.name}?.map{it.name}?.take(3).orEmpty()}}}
+    private fun selectVoice(name:String){selectedVoice=name;getSharedPreferences("jarvis",MODE_PRIVATE).edit().putString("tts_voice",name).apply();message="Voice selected. Restart JARVIS voice to apply."}
+    private fun saveVoiceTuning(){getSharedPreferences("jarvis",MODE_PRIVATE).edit().putFloat("speech_rate",voiceRate).putFloat("speech_pitch",voicePitch).apply()}
 
     private fun runQuickCommand(command: String) {
         val result = JarvisCommandEngine.execute(this, command)
@@ -223,6 +237,8 @@ class MainActivity : ComponentActivity() {
             commandHistory.add("${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())}  •  VOICE LINK  →  FAILED (${e.javaClass.simpleName})")
         }
     }
+
+    override fun onDestroy(){try{voiceLoader?.shutdown()}catch(_:Throwable){};voiceLoader=null;super.onDestroy()}
 
     private fun hasMicPermission(): Boolean = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
