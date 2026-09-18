@@ -48,6 +48,9 @@ object JarvisNaturalCommandRouter {
         text == "call them back" || text == "call them again" -> callCurrentContact(context)
         text == "message them again" || text == "text them again" -> { val contact=JarvisContext.recall(context,"contact"); if(contact.isBlank()) "I don't have a recent contact in context." else "Tell me what you want to say to $contact." }
         text == "bluetooth status" || text == "is bluetooth connected" -> if(context.getSharedPreferences("jarvis_bluetooth",Context.MODE_PRIVATE).getBoolean("connected",false)) "A Bluetooth device is connected." else "I don't currently detect a Bluetooth device connection."
+        text.startsWith("jarvis agent ") -> JarvisAgent.execute(context,text.removePrefix("jarvis agent ").trim())
+        text.startsWith("agent ") -> JarvisAgent.execute(context,text.removePrefix("agent ").trim())
+        text.startsWith("do this on screen ") -> JarvisAgent.execute(context,text.removePrefix("do this on screen ").trim())
         text.startsWith("discord tap ") -> JarvisDiscordPhoneControl.tap(context,text.removePrefix("discord tap ").trim())
         text.startsWith("discord open server ") -> JarvisDiscordPhoneControl.openServer(context,text.removePrefix("discord open server ").trim())
         text.startsWith("discord ban ") -> JarvisDiscordPhoneControl.ban(context,text.removePrefix("discord ban ").trim())
