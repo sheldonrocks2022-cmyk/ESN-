@@ -42,6 +42,8 @@ object JarvisNaturalCommandRouter {
         text in setOf("read all notifications aloud","turn on notification reading","announce notifications") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("read_all_notifications",true).apply(); "I will read incoming notifications aloud." }
         text in setOf("stop reading notifications aloud","turn off notification reading","silence notifications") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("read_all_notifications",false).apply(); "Automatic notification reading is off." }
         text.startsWith("when i say ") && text.contains(" do ") -> saveRoutine(context,text)
+        text.startsWith("when ") && text.contains(" do ") -> { val event=text.substringAfter("when ").substringBefore(" do ").trim();val action=text.substringAfter(" do ").trim();JarvisAutomationEngine.setTrigger(context,event,action) }
+        text == "list automations" || text == "list triggers" -> JarvisAutomationEngine.list(context)
         text.startsWith("create routine ") && text.contains(" to ") -> saveNamedRoutine(context,text)
         text == "list routines" || text == "what are my routines" -> listRoutines(context)
         text.startsWith("delete routine ") -> deleteRoutine(context,text.removePrefix("delete routine ").trim())
