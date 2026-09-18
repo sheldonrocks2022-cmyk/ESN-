@@ -178,6 +178,8 @@ class MainActivity : ComponentActivity() {
                     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF071A2B)), shape = RoundedCornerShape(16.dp)) { Column(Modifier.padding(15.dp)) { Text("VOICE MATRIX", color = Color(0xFF42E8F4), fontSize = 12.sp); Text(if(selectedVoice.isBlank()) "AUTO • LOCAL ENGLISH" else selectedVoice.take(42), color = Color(0xFFD6E2F0), fontSize = 11.sp); Spacer(Modifier.height(7.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { voiceNames.take(3).forEachIndexed { index, name -> HudButton("VOICE ${index+1}", Modifier.weight(1f)) { selectVoice(name) } } }; Spacer(Modifier.height(8.dp)); Text("SPEED  ${(voiceRate*100).toInt()}%",color=Color(0xFF7891AA),fontSize=10.sp); Slider(value=voiceRate,onValueChange={voiceRate=it;saveVoiceTuning()},valueRange=0.55f..1.15f); Text("PITCH  ${(voicePitch*100).toInt()}%",color=Color(0xFF7891AA),fontSize=10.sp); Slider(value=voicePitch,onValueChange={voicePitch=it;saveVoiceTuning()},valueRange=0.55f..1.25f); Text("Changes apply the next time the voice engine starts.",color=Color(0xFF60778E),fontSize=9.sp) } }
                     Spacer(Modifier.height(12.dp))
                     Button(onClick = { toggleVoice() }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A3550))) { Text(if (active) "DEACTIVATE JARVIS" else "ACTIVATE JARVIS", color = Color(0xFF7DEFF2)) }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(onClick = { emergencyShutdown() }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("EMERGENCY SHUTDOWN", color = Color(0xFFFFB4AB)) }
                     Spacer(Modifier.height(12.dp)); Text("QUICK COMMANDS", color = Color(0xFF42E8F4), fontSize = 12.sp, modifier = Modifier.fillMaxWidth()); Spacer(Modifier.height(7.dp))
                     Row(Modifier.fillMaxWidth()) { HudButton("DIAGNOSTICS", Modifier.weight(1f)) { runQuickCommand("run diagnostics") }; Spacer(Modifier.width(8.dp)); HudButton("STATUS", Modifier.weight(1f)) { runQuickCommand("system status") } }
                     Spacer(Modifier.height(8.dp)); Row(Modifier.fillMaxWidth()) { HudButton("GAMING", Modifier.weight(1f)) { runQuickCommand("gaming mode") }; Spacer(Modifier.width(8.dp)); HudButton("WORK", Modifier.weight(1f)) { runQuickCommand("work mode") } }
@@ -216,7 +218,22 @@ class MainActivity : ComponentActivity() {
         if (commandHistory.size > 12) commandHistory.removeAt(0)
     }
 
+    private fun emergencyShutdown() {
+        try { startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_STOP)) } catch (_: Throwable) {}
+        getSharedPreferences("jarvis", MODE_PRIVATE).edit()
+            .putBoolean("active", false).putBoolean("standby", false)
+            .putBoolean("emergency_shutdown", true).apply()
+        active = false
+        message = "Emergency shutdown engaged. Voice service disabled."
+        serviceStage = "EMERGENCY_SHUTDOWN"
+    }
+
     private fun toggleVoice() {
+        if (!active && getSharedPreferences("jarvis", MODE_PRIVATE).getBoolean("emergency_shutdown", false)) {
+            getSharedPreferences("jarvis", MODE_PRIVATE).edit().putBoolean("emergency_shutdown", false).apply()
+            message = "Emergency lock cleared locally. Activate JARVIS again when ready."
+            return
+        }
         if (!active && !hasMicPermission()) { requestPermissionsIfNeeded(); return }
         val activating = !active
         val action = if (activating) JarvisVoiceService.ACTION_START else JarvisVoiceService.ACTION_STOP
