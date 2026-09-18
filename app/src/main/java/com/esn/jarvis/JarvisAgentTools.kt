@@ -21,6 +21,10 @@ object JarvisAgentTools{
   is AgentStep.Type->result(JarvisAccessibilityService.typeText(step.value),"Entered text.","I couldn't find an editable field.")
   AgentStep.Back->result(JarvisAccessibilityService.back(),"Went back.","I couldn't go back.")
   AgentStep.Scroll->result(JarvisAccessibilityService.scrollForward(),"Scrolled.","I couldn't scroll farther.")
+  AgentStep.Home->result(JarvisAccessibilityService.home(),"Went home.","Home action failed.")
+  AgentStep.Recents->result(JarvisAccessibilityService.recents(),"Opened recents.","Recents action failed.")
+  AgentStep.Notifications->result(JarvisAccessibilityService.notifications(),"Opened notifications.","Notifications action failed.")
+  AgentStep.QuickSettings->result(JarvisAccessibilityService.quickSettings(),"Opened quick settings.","Quick settings action failed.")
  }
  private fun result(ok:Boolean,yes:String,no:String)=AgentResult(ok,if(ok)yes else no)
 }
