@@ -32,7 +32,15 @@ object JarvisMessaging {
         } catch (t: Throwable) { "I couldn't send that message: ${t.javaClass.simpleName}." }
     }
 
-    fun contactChoices(context:Context,name:String):List<Pair<String,String>> {\n        if(context.checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)return emptyList()\n        val wanted=alias(context,name).trim();if(wanted.isBlank())return emptyList()\n        val out=mutableListOf<Pair<String,String>>();val projection=arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER,ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)\n        context.contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,projection,null,null,null)?.use{c->val ni=c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);val di=c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);while(c.moveToNext()){val d=c.getString(di).orEmpty().trim();val n=c.getString(ni).orEmpty().trim();if(n.isNotBlank()&&(d.equals(wanted,true)||d.contains(wanted,true)||wanted.contains(d,true)))out+=d to n}}\n        return out.distinctBy{it.first.lowercase()+":"+it.second.filter(Char::isDigit)}\n    }\n\n    fun resolveContact(context:Context,name:String):Pair<String,String>? {
+    fun contactChoices(context:Context,name:String):List<Pair<String,String>> {
+        if(context.checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)return emptyList()
+        val wanted=alias(context,name).trim();if(wanted.isBlank())return emptyList()
+        val out=mutableListOf<Pair<String,String>>();val projection=arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER,ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+        context.contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,projection,null,null,null)?.use{c->val ni=c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);val di=c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);while(c.moveToNext()){val d=c.getString(di).orEmpty().trim();val n=c.getString(ni).orEmpty().trim();if(n.isNotBlank()&&(d.equals(wanted,true)||d.contains(wanted,true)||wanted.contains(d,true)))out+=d to n}}
+        return out.distinctBy{it.first.lowercase()+":"+it.second.filter(Char::isDigit)}
+    }
+
+    fun resolveContact(context:Context,name:String):Pair<String,String>? {
         if(context.checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)return null
         val wanted=alias(context,name).trim()
         if(wanted.isBlank())return null
