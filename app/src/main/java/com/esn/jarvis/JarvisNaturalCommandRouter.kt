@@ -54,7 +54,7 @@ object JarvisNaturalCommandRouter {
         text.startsWith("create code file ") && text.contains(" with ") -> { val path=text.substringAfter("create code file ").substringBefore(" with ").trim(); val body=text.substringAfter(" with ").trim(); JarvisCodingWorkspace.write(context,path,body) }
         text.startsWith("read code file ") -> JarvisCodingWorkspace.read(context,text.removePrefix("read code file ").trim())
         text == "list code files" -> JarvisCodingWorkspace.list(context)
-        text == "jarvis confirm" || text == "confirm" -> confirmPendingAction(context)
+        text in setOf("jarvis confirm","confirm") -> confirmPendingAction(context)
         text == "confirm agent action" -> JarvisAgentSafety.confirm(context)
         text == "cancel agent action" -> JarvisAgentSafety.cancel(context)
         text.startsWith("jarvis agent ") -> JarvisAgent.execute(context,text.removePrefix("jarvis agent ").trim())
