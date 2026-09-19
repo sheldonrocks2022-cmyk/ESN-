@@ -23,7 +23,7 @@ object JarvisDiscordPhoneControl{
   val found=Regex("""\d{17,20}""").findAll(ids).map{it.value}.distinct().filter{(accountAgeDays(it)?:Long.MAX_VALUE)<days}.toList()
   val p=c.getSharedPreferences("jarvis_discord_recent_audit",0)
   p.edit().putString("ids",found.joinToString(",")).putInt("days",days).putLong("until",System.currentTimeMillis()+120000).apply()
-  return if(found.isEmpty())"I found no supplied Discord user IDs with accounts newer than $days days." else "I found "+found.size+" supplied account"+if(found.size==1)"":"s"+" newer than $days days. Say confirm recent account bans within two minutes to arm the bans."
+  return if(found.isEmpty()) "I found no supplied Discord user IDs with accounts newer than $days days." else "I found ${found.size} supplied account${if(found.size==1) "" else "s"} newer than $days days. Say confirm recent account bans within two minutes to arm the bans."
  }
  fun confirmRecentAccountBans(c:Context):String{
   val p=c.getSharedPreferences("jarvis_discord_recent_audit",0);if(System.currentTimeMillis()>p.getLong("until",0))return "No recent-account ban audit is awaiting confirmation."
