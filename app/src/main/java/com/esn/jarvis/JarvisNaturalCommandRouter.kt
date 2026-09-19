@@ -84,7 +84,7 @@ object JarvisNaturalCommandRouter {
         text.startsWith("discord edit channel ") -> JarvisDiscordPhoneControl.editChannel(context,text.removePrefix("discord edit channel ").trim())
         text.startsWith("discord edit role ") -> JarvisDiscordPhoneControl.editRole(context,text.removePrefix("discord edit role ").trim())
         text.startsWith("discord manage member ") -> JarvisDiscordPhoneControl.manageMember(context,text.removePrefix("discord manage member ").trim())
-        text == "confirm discord action" -> JarvisDiscordPhoneControl.confirm(context)
+        text in setOf("confirm discord action","confirm discord","discord confirm","confirm the discord action","confirm discord command","confirm discord moderation") -> JarvisDiscordPhoneControl.confirm(context)
         text == "help" || text == "what can you do" || text == "what can i say" -> "I can open apps, send messages, control supported phone functions, read notifications, inspect your screen, run routines, chain commands, and maintain recent conversation context."
         text == "are you there" || text == "you there" || text == "hello" || text == "hey" -> "At your service."
         text.contains("what am i looking at") || text.contains("what is on my screen") || text.contains("read this screen") || text.contains("describe my screen") -> JarvisScreenInspector.describeScreen()
