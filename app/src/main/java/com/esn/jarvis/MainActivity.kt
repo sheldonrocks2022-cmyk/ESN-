@@ -80,8 +80,11 @@ class MainActivity : ComponentActivity() {
     private var ownerVoiceEnrolled by mutableStateOf(false)
     private var enrollingVoice by mutableStateOf(false)
     private var discordGuildId by mutableStateOf("")
+    private var modelStatus by mutableStateOf("NONE")
     private var voiceLoader: TextToSpeech? = null
     private val commandHistory = mutableStateListOf<String>()
+
+    private val modelPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if(uri!=null){val r=JarvisModelManager.importGguf(this,uri);modelStatus=JarvisModelManager.installedSize(this);message=r.message} }
 
     private val deviceAuthLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r -> if(r.resultCode==android.app.Activity.RESULT_OK){getSharedPreferences("jarvis",MODE_PRIVATE).edit().putBoolean("emergency_shutdown",false).apply();message="Device authentication accepted. Emergency lock cleared; activate JARVIS when ready."}else message="Device authentication was not completed." }
 
@@ -101,6 +104,7 @@ class MainActivity : ComponentActivity() {
         commandHistory.addAll(persisted)
         ownerVoiceEnrolled=OwnerVoiceProfile.isEnrolled(this)
         discordGuildId=getSharedPreferences("jarvis_discord_phone",MODE_PRIVATE).getString("guild_id","").orEmpty()
+        modelStatus=JarvisModelManager.installedSize(this)
         loadVoices()
         setContent { JarvisScreen() }
     }
@@ -197,6 +201,8 @@ class MainActivity : ComponentActivity() {
                         }
                         if(enrollingVoice) Text("Enrollment running locally. Say “JARVIS” naturally for each sample.",color=Color(0xFF9FB3C7),fontSize=10.sp)
                     } }
+                    Spacer(Modifier.height(12.dp))
+                    Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF071A2B)),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Text("LOCAL AI MODEL",color=Color(0xFF42E8F4),fontSize=12.sp);TelemetryRow("GGUF MODEL",modelStatus);Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){HudButton("IMPORT GGUF",Modifier.weight(1f)){modelPicker.launch(arrayOf("*/*"))};HudButton("DELETE MODEL",Modifier.weight(1f)){if(JarvisModelManager.delete(this@MainActivity)){modelStatus="NONE";message="Local model deleted."}else message="I could not delete the local model."}};Text("Models stay in JARVIS private app storage.",color=Color(0xFF60778E),fontSize=9.sp)}}
                     Spacer(Modifier.height(12.dp))
                     Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF071A2B)),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Text("DISCORD SERVER MANAGER",color=Color(0xFF42E8F4),fontSize=12.sp);OutlinedTextField(value=discordGuildId,onValueChange={discordGuildId=it.filter(Char::isDigit)},label={Text("Server ID")},singleLine=true,modifier=Modifier.fillMaxWidth());Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){HudButton("SAVE",Modifier.weight(1f)){if(discordGuildId.isBlank())message="Enter a Discord server ID." else{getSharedPreferences("jarvis_discord_phone",MODE_PRIVATE).edit().putString("guild_id",discordGuildId).apply();message="Discord server saved for phone control."}};HudButton("OPEN",Modifier.weight(1f)){message=JarvisDiscordPhoneControl.openServer(this@MainActivity,discordGuildId)}};Text("Per-install Server ID. JARVIS controls the Discord app as the account logged into this phone. Destructive actions require confirmation.",color=Color(0xFF60778E),fontSize=9.sp)}}
                     Spacer(Modifier.height(12.dp))
