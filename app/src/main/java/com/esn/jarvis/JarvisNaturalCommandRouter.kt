@@ -111,6 +111,10 @@ object JarvisNaturalCommandRouter {
         text.startsWith("do you see ") -> if(JarvisScreenInspector.hasText(text.removePrefix("do you see ").trim())) "Yes, I can see that on the current screen." else "I don't see that on the current screen."
         text.startsWith("tap on screen ") -> JarvisScreenInspector.tapText(text.removePrefix("tap on screen ").trim())
         text == "what controls can you see" || text == "what buttons can you see" -> JarvisScreenInspector.listControls()
+        text in setOf("what screen am i on","what page am i on","screen state") -> JarvisScreenInspector.screenState()
+        text.startsWith("open the one underneath ") -> JarvisScreenInspector.tapRelative(text.removePrefix("open the one underneath ").trim(),true)
+        text.startsWith("tap the one below ") -> JarvisScreenInspector.tapRelative(text.removePrefix("tap the one below ").trim(),true)
+        text.startsWith("tap the one above ") -> JarvisScreenInspector.tapRelative(text.removePrefix("tap the one above ").trim(),false)
         text.matches(Regex("tap (the )?(\\d+)(st|nd|rd|th)?( item| result| button)?")) -> JarvisScreenInspector.tapNumber(Regex("\\d+").find(text)?.value?.toIntOrNull()?:1)
         text.startsWith("scroll until you see ") -> JarvisScreenInspector.scrollTo(text.removePrefix("scroll until you see ").trim())
         text.startsWith("find and tap ") -> JarvisScreenInspector.scrollTo(text.removePrefix("find and tap ").trim())
