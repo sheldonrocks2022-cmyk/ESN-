@@ -62,6 +62,7 @@ object JarvisOnDeviceReasoner : JarvisReasoningEngine {
             appendLine("Goal: $goal")
             appendLine("Package: ${state.packageName}")
             appendLine("Visible: ${state.text.joinToString(" | ").take(5000)}")
+            appendLine("Screen state: ${JarvisScreenInspector.screenState()}")
             appendLine("Controls: ${JarvisScreenInspector.semanticSummary().take(3000)}")
             appendLine("Recent: ${history.takeLast(1500)}")
             appendLine("Learned: ${JarvisAgentMemory.relevant(context,goal).take(1800)}")
