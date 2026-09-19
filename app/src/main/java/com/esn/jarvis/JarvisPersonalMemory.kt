@@ -1,0 +1,15 @@
+package com.esn.jarvis
+import android.content.Context
+import org.json.JSONObject
+object JarvisPersonalMemory {
+ private const val PREFS="jarvis_personal_memory"
+ private fun p(c:Context)=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+ fun remember(c:Context,key:String,value:String):String{val k=key.trim().lowercase();val v=value.trim();if(k.isBlank()||v.isBlank())return "Tell me what to remember.";p(c).edit().putString(k,v).apply();return "I'll remember $k."}
+ fun forget(c:Context,key:String):String{val k=key.trim().lowercase();if(!p(c).contains(k))return "I don't have that saved.";p(c).edit().remove(k).apply();return "Forgot $k."}
+ fun summary(c:Context):String{val all=p(c).all.filter{!it.key.startsWith("_")&&it.value is String};return if(all.isEmpty())"I don't have any personal preferences saved yet." else "I remember: "+all.entries.take(20).joinToString("; "){"${it.key} is ${it.value}"}+"."}
+ fun learnCorrection(c:Context,text:String):String?{val m=Regex("^when i say (.+?) i mean (.+)$").find(text)?:return null;val phrase=m.groupValues[1].trim();val meaning=m.groupValues[2].trim();c.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).edit().putString(phrase,meaning).apply();remember(c,"meaning:$phrase",meaning);return "Got it. When you say $phrase, I'll use $meaning."}
+ fun observe(c:Context,command:String){val n=command.trim().lowercase();if(n.length<3)return;val counts=try{JSONObject(p(c).getString("_counts","{}"))}catch(_:Throwable){JSONObject()};counts.put(n,counts.optInt(n,0)+1);p(c).edit().putString("_counts",counts.toString()).apply()}
+ fun suggestion(c:Context):String{val counts=try{JSONObject(p(c).getString("_counts","{}"))}catch(_:Throwable){JSONObject()};var best="";var score=2;val keys=counts.keys();while(keys.hasNext()){val k=keys.next();val v=counts.optInt(k);if(v>score){score=v;best=k}};return if(best.isBlank())"I haven't seen a repeated command often enough to suggest a routine yet." else "You've used '$best' $score times. You can turn it into a routine."}
+ fun briefing(c:Context):String{val notifications=JarvisNotificationListenerService.summary(c);val battery=JarvisCommandEngine.execute(c,"battery status");val recent=JarvisContext.recent(c);return listOf("Here's your briefing.",battery,notifications,if(recent.isBlank())"" else "Recent activity: $recent.").filter{it.isNotBlank()}.joinToString(" ")}
+ fun clear(c:Context):String{p(c).edit().clear().apply();return "Personal memory cleared."}
+}
