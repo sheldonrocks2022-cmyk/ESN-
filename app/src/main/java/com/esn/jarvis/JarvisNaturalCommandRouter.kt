@@ -60,6 +60,7 @@ object JarvisNaturalCommandRouter {
         text.startsWith("jarvis agent ") -> JarvisAgent.execute(context,text.removePrefix("jarvis agent ").trim())
         text.startsWith("agent ") -> JarvisAgent.execute(context,text.removePrefix("agent ").trim())
         text.startsWith("do this on screen ") -> JarvisAgent.execute(context,text.removePrefix("do this on screen ").trim())
+        naturalDiscord(context,text)?.let{return it}
         text.startsWith("discord tap ") -> JarvisDiscordPhoneControl.tap(context,text.removePrefix("discord tap ").trim())
         text in setOf("open discord server","open the discord server","open my discord server","discord open server","open server") -> JarvisDiscordPhoneControl.openSavedServer(context)
         text.startsWith("discord open server ") -> JarvisDiscordPhoneControl.openServer(context,text.removePrefix("discord open server ").trim())
@@ -143,6 +144,41 @@ object JarvisNaturalCommandRouter {
         text.contains("gaming mode") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("gaming_mode",true).apply(); "Gaming mode enabled." }
         text.contains("work mode") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("gaming_mode",false).apply(); "Work mode enabled." }
         else -> null
+    }
+
+    private fun naturalDiscord(context:Context,text:String):String?{
+        val p=context.getSharedPreferences("jarvis_discord_context",Context.MODE_PRIVATE)
+        fun remember(member:String){if(member.isNotBlank())p.edit().putString("member",member).putLong("until",System.currentTimeMillis()+600000).apply()}
+        fun recalled():String=if(System.currentTimeMillis()<p.getLong("until",0L))p.getString("member","").orEmpty() else ""
+        fun clean(v:String)=v.replace(Regex("\\s+(?:from|in|on) (?:the )?(?:discord )?server$"),"").trim()
+        fun member(raw:String):String{val v=clean(raw);return if(v in setOf("him","her","them","that guy","that person","this guy","this person"))recalled() else v}
+        fun need(v:String)=if(v.isBlank())"Tell me which Discord member first." else ""
+        var m=Regex("^(?:discord )?manage (.+)$").find(text)?.groupValues?.get(1)?.let(::member)
+        if(m!=null){if(need(m).isNotBlank())return need(m);remember(m);return JarvisDiscordPhoneControl.manageMember(context,m)}
+        m=Regex("^(?:discord )?ban (.+?)(?: from (?:the )?(?:discord )?server)?$").find(text)?.groupValues?.get(1)?.let(::member)
+        if(m!=null){if(need(m).isNotBlank())return need(m);remember(m);return JarvisDiscordPhoneControl.ban(context,m)}
+        m=Regex("^(?:discord )?kick (.+?)(?: from (?:the )?(?:discord )?server)?$").find(text)?.groupValues?.get(1)?.let(::member)
+        if(m!=null){if(need(m).isNotBlank())return need(m);remember(m);return JarvisDiscordPhoneControl.kick(context,m)}
+        val timeout=Regex("^(?:discord )?(?:timeout|time out) (.+?)(?: for (.+))?$").find(text)
+        if(timeout!=null){m=member(timeout.groupValues[1]);if(need(m).isNotBlank())return need(m);remember(m);return JarvisDiscordPhoneControl.timeout(context,m)}
+        m=Regex("^(?:discord )?mute (.+?)(?: for .+)?$").find(text)?.groupValues?.get(1)?.let(::member)
+        if(m!=null){if(need(m).isNotBlank())return need(m);remember(m);return JarvisDiscordPhoneControl.mute(context,m)}
+        m=Regex("^(?:discord )?unmute (.+)$").find(text)?.groupValues?.get(1)?.let(::member)
+        if(m!=null){if(need(m).isNotBlank())return need(m);remember(m);return JarvisDiscordPhoneControl.unmute(context,m)}
+        val give=Regex("^(?:discord )?(?:give|add) (.+?) (?:the )?(.+?) role$").find(text)
+        if(give!=null){m=member(give.groupValues[1]);val role=give.groupValues[2].trim();if(need(m).isNotBlank())return need(m);remember(m);return JarvisDiscordPhoneControl.addRole(context,m,role)}
+        val remove=Regex("^(?:discord )?remove (?:the )?(.+?) role from (.+)$").find(text)
+        if(remove!=null){val role=remove.groupValues[1].trim();m=member(remove.groupValues[2]);if(need(m).isNotBlank())return need(m);remember(m);return JarvisDiscordPhoneControl.removeRole(context,m,role)}
+        if(text in setOf("delete this message","delete that message","discord delete this message","discord delete that message"))return JarvisDiscordPhoneControl.deleteMessage(context,"message")
+        val channel=Regex("^(?:discord )?(?:make|create) (?:a )?channel (?:called |named )?(.+)$").find(text)?.groupValues?.get(1)?.trim()
+        if(!channel.isNullOrBlank())return JarvisDiscordPhoneControl.createChannel(context,channel)
+        val role=Regex("^(?:discord )?(?:make|create) (?:a )?role (?:called |named )?(.+)$").find(text)?.groupValues?.get(1)?.trim()
+        if(!role.isNullOrBlank())return JarvisDiscordPhoneControl.createRole(context,role)
+        if(text in setOf("mute him","mute her","mute them","kick him","kick her","kick them","ban him","ban her","ban them","unmute him","unmute her","unmute them")){
+            m=recalled();if(m.isBlank())return "Tell me which Discord member first."
+            return when{text.startsWith("mute")->JarvisDiscordPhoneControl.mute(context,m);text.startsWith("kick")->JarvisDiscordPhoneControl.kick(context,m);text.startsWith("ban")->JarvisDiscordPhoneControl.ban(context,m);else->JarvisDiscordPhoneControl.unmute(context,m)}
+        }
+        return null
     }
 
     private fun confirmPendingAction(context:Context):String{val discord=context.getSharedPreferences("jarvis_discord_phone_pending",Context.MODE_PRIVATE);if(discord.getLong("until",0)>System.currentTimeMillis())return JarvisDiscordPhoneControl.confirm(context);val recent=context.getSharedPreferences("jarvis_discord_recent_audit",Context.MODE_PRIVATE);if(recent.getLong("until",0)>System.currentTimeMillis())return JarvisDiscordPhoneControl.confirmRecentAccountBans(context);return JarvisAgentSafety.confirm(context)}
