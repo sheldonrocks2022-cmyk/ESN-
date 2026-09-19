@@ -20,7 +20,7 @@ object JarvisOnDeviceReasoner : JarvisReasoningEngine {
     ): List<AgentStep> {
         val modelOutput = JarvisModelRuntime.complete(
             context,
-            buildPrompt(goal, state, history)
+            buildPrompt(goal, state, history, context)
         )
         if (!modelOutput.isNullOrBlank()) {
             val modelPlan = parsePlan(modelOutput)
@@ -55,7 +55,8 @@ object JarvisOnDeviceReasoner : JarvisReasoningEngine {
     private fun buildPrompt(
         goal: String,
         state: AgentSnapshot,
-        history: String
+        history: String,
+        context: Context
     ): String {
         return buildString {
             appendLine("Goal: $goal")
