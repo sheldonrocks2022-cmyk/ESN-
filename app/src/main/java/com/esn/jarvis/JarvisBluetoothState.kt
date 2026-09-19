@@ -1,9 +1,10 @@
 package com.esn.jarvis
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.content.pm.PackageManager
 object JarvisBluetoothState{
- fun status(c:Context):String{val m=c.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager?:return "Bluetooth is unavailable.";val a=m.adapter?:return "Bluetooth is unavailable.";if(!a.isEnabled)return "Bluetooth is off.";if(android.os.Build.VERSION.SDK_INT>=31&&c.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED)return "Bluetooth is on, but JARVIS needs Nearby Devices permission to inspect paired devices.";val cached=c.getSharedPreferences("jarvis_bluetooth",0).getBoolean("connected",false);val paired=try{a.bondedDevices.size}catch(_:SecurityException){0};return if(cached)"Bluetooth is on and a device connection is currently detected." else "Bluetooth is on. $paired paired device"+(if(paired==1)" is" else "s are")+" known; no active ACL connection is currently detected."}
+ fun status(c:Context):String{val a=BluetoothAdapter.getDefaultAdapter()?:return "Bluetooth is not available on this device.";if(!a.isEnabled)return "Bluetooth is off.";if(android.os.Build.VERSION.SDK_INT>=31&&c.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED)return "Bluetooth is on, but JARVIS needs Nearby devices permission to read connected device details.";val p=c.getSharedPreferences("jarvis_bluetooth",0);val connected=p.getBoolean("connected",false);val name=p.getString("device_name","").orEmpty();return if(connected)"Bluetooth is on and "+(if(name.isBlank())"a device is connected." else "$name is connected.") else "Bluetooth is on. I do not currently detect an active device connection."}
+ fun update(c:Context,d:BluetoothDevice?,connected:Boolean){val name=try{d?.name.orEmpty()}catch(_:SecurityException){""};c.getSharedPreferences("jarvis_bluetooth",0).edit().putBoolean("connected",connected).putString("device_name",if(connected)name else "").putLong("changed_at",System.currentTimeMillis()).apply()}
 }

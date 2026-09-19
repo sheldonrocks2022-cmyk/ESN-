@@ -63,7 +63,7 @@ object JarvisOnDeviceReasoner : JarvisReasoningEngine {
             appendLine("Visible: ${state.text.joinToString(" | ").take(5000)}")
             appendLine("Controls: ${JarvisScreenInspector.semanticSummary().take(3000)}")
             appendLine("Recent: ${history.takeLast(1500)}")
-            appendLine("Learned: ${JarvisAgentMemory.summary(context).take(1200)}")
+            appendLine("Learned: ${JarvisAgentMemory.relevant(context,goal).take(1800)}")
             append("Return only lines: TAP <label>, TYPE <text>, BACK, SCROLL, HOME, RECENTS, NOTIFICATIONS, or QUICK_SETTINGS.")
         }
     }

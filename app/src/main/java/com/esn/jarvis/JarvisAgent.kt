@@ -17,8 +17,8 @@ object JarvisAgent {
    Thread.sleep(350)
    val after=JarvisAgentTools.snapshot()
    trace+="step="+(index+1)+" "+step+" => "+result
-   if(!result.ok)return "I stopped at step "+(index+1)+": "+result.message
-   if(step.requiresChange && before.signature==after.signature)return "I stopped because the screen did not change after "+step.describe()+"."
+   if(!result.ok){JarvisAgentMemory.record(context,goal,trace,false);return "I stopped at step "+(index+1)+": "+result.message}
+   if(step.requiresChange && before.signature==after.signature){JarvisAgentMemory.record(context,goal,trace,false);return "I stopped because the screen did not change after "+step.describe()+"."}
   }
   JarvisAgentMemory.record(context,goal,trace,true)
   return "I stopped after "+MAX_STEPS+" verified steps so the task could not loop indefinitely."

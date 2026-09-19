@@ -47,7 +47,13 @@ object JarvisNaturalCommandRouter {
         text == "what were we doing" || text == "what was i doing" -> { val recent=JarvisContext.recent(context);if(recent.isBlank())"I do not have recent command context." else "Recently you asked me to $recent." }
         text == "call them back" || text == "call them again" -> callCurrentContact(context)
         text == "message them again" || text == "text them again" -> { val contact=JarvisContext.recall(context,"contact"); if(contact.isBlank()) "I don't have a recent contact in context." else "Tell me what you want to say to $contact." }
-        text == "bluetooth status" || text == "is bluetooth connected" -> if(context.getSharedPreferences("jarvis_bluetooth",Context.MODE_PRIVATE).getBoolean("connected",false)) "A Bluetooth device is connected." else "I don't currently detect a Bluetooth device connection."
+        text == "bluetooth status" || text == "is bluetooth connected" -> JarvisBluetoothState.status(context)
+        text == "agent memory" || text == "what has the agent learned" -> JarvisAgentMemory.summary(context)
+        text == "clear agent memory" -> JarvisAgentMemory.clear(context)
+        text == "coding workspace" || text == "coding workspace status" -> JarvisCodingWorkspace.status(context)
+        text.startsWith("create code file ") && text.contains(" with ") -> { val path=text.substringAfter("create code file ").substringBefore(" with ").trim(); val body=raw.substringAfter(" with ").trim(); JarvisCodingWorkspace.write(context,path,body) }
+        text.startsWith("read code file ") -> JarvisCodingWorkspace.read(context,text.removePrefix("read code file ").trim())
+        text == "list code files" -> JarvisCodingWorkspace.list(context)
         text == "confirm agent action" -> JarvisAgentSafety.confirm(context)
         text == "cancel agent action" -> JarvisAgentSafety.cancel(context)
         text.startsWith("jarvis agent ") -> JarvisAgent.execute(context,text.removePrefix("jarvis agent ").trim())

@@ -3,9 +3,9 @@ import android.content.Context
 import java.io.File
 object JarvisCodingWorkspace{
  private fun root(c:Context)=File(c.filesDir,"coding_workspace").apply{mkdirs()}
- private fun safe(c:Context,path:String):File?{val r=root(c);val f=File(r,path).canonicalFile;return if(f.path.startsWith(r.canonicalPath+File.separator))f else null}
- fun write(c:Context,path:String,body:String):String{val f=safe(c,path)?:return "That path is outside the JARVIS coding workspace.";return try{f.parentFile?.mkdirs();f.writeText(body); "Saved $path in the local coding workspace."}catch(_:Throwable){"I could not write that code file."}}
- fun read(c:Context,path:String):String{val f=safe(c,path)?:return "That path is outside the JARVIS coding workspace.";return if(!f.isFile)"That code file does not exist." else f.readText().take(6000)}
- fun delete(c:Context,path:String):String{val f=safe(c,path)?:return "That path is outside the JARVIS coding workspace.";return if(f.isFile&&f.delete())"Deleted $path from the coding workspace." else "That code file does not exist."}
- fun status(c:Context):String{val r=root(c);val files=r.walkTopDown().filter{it.isFile}.take(50).toList();return if(files.isEmpty())"Coding workspace is ready and empty." else "Coding workspace contains "+files.size+" file(s): "+files.take(12).joinToString(", "){it.relativeTo(r).path}}
+ private fun safe(c:Context,path:String):File?{val r=root(c).canonicalFile;val f=File(r,path).canonicalFile;return if(f.path==r.path||f.path.startsWith(r.path+File.separator))f else null}
+ fun write(c:Context,path:String,content:String):String{if(path.isBlank())return "Give me a workspace file path.";val f=safe(c,path)?:return "That path is outside the JARVIS coding workspace.";return try{f.parentFile?.mkdirs();f.writeText(content); "Saved $path in the local coding workspace."}catch(_:Throwable){"I could not write that workspace file."}}
+ fun read(c:Context,path:String):String{val f=safe(c,path)?:return "That path is outside the JARVIS coding workspace.";return if(!f.isFile)"I could not find $path." else f.readText().take(6000)}
+ fun list(c:Context):String{val r=root(c);val files=r.walkTopDown().filter{it.isFile}.map{it.relativeTo(r).path}.take(50).toList();return if(files.isEmpty())"The coding workspace is empty." else "Workspace files: "+files.joinToString(", ")}
+ fun status(c:Context):String{val r=root(c);val count=r.walkTopDown().count{it.isFile};return "Local coding workspace ready with $count files. File creation and editing are available; compilation requires an installed build toolchain."}
 }
