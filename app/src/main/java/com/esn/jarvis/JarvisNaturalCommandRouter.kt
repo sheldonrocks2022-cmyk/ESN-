@@ -51,7 +51,7 @@ object JarvisNaturalCommandRouter {
         text == "agent memory" || text == "what has the agent learned" -> JarvisAgentMemory.summary(context)
         text == "clear agent memory" -> JarvisAgentMemory.clear(context)
         text == "coding workspace" || text == "coding workspace status" -> JarvisCodingWorkspace.status(context)
-        text.startsWith("create code file ") && text.contains(" with ") -> { val path=text.substringAfter("create code file ").substringBefore(" with ").trim(); val body=raw.substringAfter(" with ").trim(); JarvisCodingWorkspace.write(context,path,body) }
+        text.startsWith("create code file ") && text.contains(" with ") -> { val path=text.substringAfter("create code file ").substringBefore(" with ").trim(); val body=text.substringAfter(" with ").trim(); JarvisCodingWorkspace.write(context,path,body) }
         text.startsWith("read code file ") -> JarvisCodingWorkspace.read(context,text.removePrefix("read code file ").trim())
         text == "list code files" -> JarvisCodingWorkspace.list(context)
         text == "confirm agent action" -> JarvisAgentSafety.confirm(context)
