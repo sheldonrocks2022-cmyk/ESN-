@@ -63,6 +63,7 @@ object JarvisOnDeviceReasoner : JarvisReasoningEngine {
             appendLine("Visible: ${state.text.joinToString(" | ").take(5000)}")
             appendLine("Controls: ${JarvisScreenInspector.semanticSummary().take(3000)}")
             appendLine("Recent: ${history.takeLast(1500)}")
+            appendLine("Learned: ${JarvisAgentMemory.summary(context).take(1200)}")
             append("Return only lines: TAP <label>, TYPE <text>, BACK, SCROLL, HOME, RECENTS, NOTIFICATIONS, or QUICK_SETTINGS.")
         }
     }
@@ -78,8 +79,11 @@ object JarvisOnDeviceReasoner : JarvisReasoningEngine {
                     AgentStep.Type(value.substring(5).trim())
                 value.equals("BACK", ignoreCase = true) ->
                     AgentStep.Back
-                value.equals("SCROLL", ignoreCase = true) ->
-                    AgentStep.Scroll
+                value.equals("SCROLL", ignoreCase = true) -> AgentStep.Scroll
+                value.equals("HOME", ignoreCase = true) -> AgentStep.Home
+                value.equals("RECENTS", ignoreCase = true) -> AgentStep.Recents
+                value.equals("NOTIFICATIONS", ignoreCase = true) -> AgentStep.Notifications
+                value.equals("QUICK_SETTINGS", ignoreCase = true) -> AgentStep.QuickSettings
                 else -> null
             }
             if (step != null) steps.add(step)
