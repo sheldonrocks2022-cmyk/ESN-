@@ -26,7 +26,7 @@ object JarvisDiscordPhoneControl{
   val found=Regex("""\d{17,20}""").findAll(ids).map{it.value}.distinct().filter{(accountAgeDays(it)?:Long.MAX_VALUE)<days}.toList()
   val p=c.getSharedPreferences("jarvis_discord_recent_audit",0)
   p.edit().putString("ids",found.joinToString(",")).putInt("days",days).putLong("until",System.currentTimeMillis()+120000).apply()
-  return if(found.isEmpty()) "I found no supplied Discord user IDs with accounts newer than $days days." else "I found ${found.size} supplied account${if(found.size==1) "" else "s"} newer than $days days. Say confirm recent account bans within two minutes to arm the bans."
+  return if(found.isEmpty()) "I found no supplied Discord user IDs with accounts newer than $days days." else "I found ${found.size} supplied account${if(found.size==1) "" else "s"} newer than $days days. Say JARVIS confirm within two minutes to arm the bans."
  }
  fun massBanRecentAccounts(c:Context,days:Int=3):String{
   if(days<1)return "The account age must be at least one day."
@@ -52,7 +52,7 @@ object JarvisDiscordPhoneControl{
   val ids=p.getString("ids","").orEmpty().split(",").filter{it.isNotBlank()};p.edit().clear().apply()
   if(ids.isEmpty())return "There are no audited accounts to ban."
   c.getSharedPreferences("jarvis_discord_phone_pending",0).edit().putString("action","bulk_ban_ids").putString("target",ids.joinToString(",")).putLong("until",System.currentTimeMillis()+120000).apply();open(c,saved(c))
-  return "Armed "+ids.size+" audited account bans. Discord must expose each member in the UI; say confirm Discord action within two minutes."
+  return "Armed "+ids.size+" audited account bans. Discord must expose each member in the UI; say JARVIS confirm within two minutes."
  }
  fun tap(c:Context,label:String)=if(!JarvisAccessibilityService.hasAccess())"Enable Phone Access for JARVIS first." else JarvisScreenInspector.tapText(label)
  fun ban(c:Context,t:String)=arm(c,"ban",t);fun kick(c:Context,t:String)=arm(c,"kick",t);fun timeout(c:Context,t:String)=arm(c,"timeout",t)
@@ -64,5 +64,41 @@ object JarvisDiscordPhoneControl{
  fun deleteRole(c:Context,t:String)=arm(c,"delete_role",t);fun editChannel(c:Context,t:String)=arm(c,"edit_channel",t)
  fun editRole(c:Context,t:String)=arm(c,"edit_role",t);fun manageMember(c:Context,t:String)=arm(c,"manage_member",t)
  private fun arm(c:Context,a:String,t:String,x:String=""):String{if(t.isBlank())return "Tell me which Discord member, channel, message, or role.";val guild=saved(c);if(guild.isBlank())return "Save your Discord Server ID in the dashboard first.";c.getSharedPreferences("jarvis_discord_phone_pending",0).edit().putString("action",a).putString("target",t).putString("extra",x).putLong("until",System.currentTimeMillis()+120000).apply();open(c,guild);return "Discord "+a.replace("_"," ")+" for "+t+" is ready. Say JARVIS confirm within two minutes."}
- fun confirm(c:Context):String{val p=c.getSharedPreferences("jarvis_discord_phone_pending",0);if(System.currentTimeMillis()>p.getLong("until",0))return "No Discord action is awaiting confirmation.";val a=p.getString("action","").orEmpty();val t=p.getString("target","").orEmpty();val x=p.getString("extra","").orEmpty();p.edit().clear().apply();if(!JarvisAccessibilityService.hasAccess())return "Enable Phone Access for JARVIS first.";if(JarvisAccessibilityService.activePackage()!=PKG)return "Discord is not the active app. Open Discord and try again.";if(a=="bulk_ban_ids"){val ids=t.split(",").map{it.trim()}.filter{it.isNotBlank()};val visible=ids.firstOrNull{JarvisScreenInspector.hasText(it)}?:return "None of the audited Discord user IDs are visible on this screen. Open the member list or member profile where a verified ID is visible, then say confirm Discord action again.";if(JarvisScreenInspector.tapText(visible).startsWith("I could not", ignoreCase=true))return "I can see verified user ID "+visible+" but could not open it.";if(!JarvisScreenInspector.tapAny("Ban","Ban Member"))return "I opened verified user ID "+visible+" but could not find the Ban control.";val remaining=ids.filterNot{it==visible};if(remaining.isNotEmpty())c.getSharedPreferences("jarvis_discord_phone_pending",0).edit().putString("action","bulk_ban_ids").putString("target",remaining.joinToString(",")).putLong("until",System.currentTimeMillis()+120000).apply();return "Ban control reached for verified recent account "+visible+". Check Discord and finalize the visible confirmation. "+(if(remaining.isEmpty()) "That was the last audited account." else remaining.size.toString()+" audited account(s) remain; navigate to the next visible member ID and say JARVIS confirm again.")};if(t.isNotBlank() && !JarvisScreenInspector.hasText(t) && a !in setOf("create_channel","create_role"))return "I cannot see "+t+" on the current Discord screen.";if(t.isNotBlank()&&a !in setOf("create_channel","create_role"))JarvisScreenInspector.tapText(t);val labels=when(a){"ban"->arrayOf("Ban","Ban Member");"kick"->arrayOf("Kick","Kick Member");"timeout"->arrayOf("Timeout","Time Out");"mute"->arrayOf("Mute");"unmute"->arrayOf("Unmute");"delete_channel"->arrayOf("Delete Channel","Delete");"delete_message"->arrayOf("Delete Message","Delete");"pin"->arrayOf("Pin Message","Pin");"unpin"->arrayOf("Unpin Message","Unpin");"add_role","remove_role","edit_role"->arrayOf("Roles","Manage Roles");"create_channel"->arrayOf("Create Channel","Create");"create_role"->arrayOf("Create Role","Roles");"delete_role"->arrayOf("Delete Role","Delete");"edit_channel"->arrayOf("Edit Channel","Settings");"manage_member"->arrayOf("Manage","Moderation","Roles");else->emptyArray()};if(labels.isEmpty()||!JarvisScreenInspector.tapAny(*labels))return "I could not find that Discord control on this screen.";if((a=="add_role"||a=="remove_role")&&x.isNotBlank()&&!JarvisScreenInspector.tapAny(x))return "I reached roles but could not find "+x+".";return "Discord "+a.replace("_"," ")+" control was reached. Check the visible Discord confirmation before finalizing."}
+ fun confirm(c:Context):String{
+  val p=c.getSharedPreferences("jarvis_discord_phone_pending",0)
+  val until=p.getLong("until",0L)
+  if(until<=0L||System.currentTimeMillis()>until){p.edit().clear().apply();return "No Discord action is awaiting confirmation."}
+  val a=p.getString("action","").orEmpty();val t=p.getString("target","").orEmpty();val x=p.getString("extra","").orEmpty()
+  if(a.isBlank()){p.edit().clear().apply();return "No Discord action is awaiting confirmation."}
+  if(!JarvisAccessibilityService.hasAccess())return "Enable Phone Access for JARVIS first. Your Discord action is still waiting."
+  if(JarvisAccessibilityService.activePackage()!=PKG){open(c,saved(c));return "Discord was not active, so I reopened it. Your action is still waiting; say JARVIS confirm again when Discord is ready."}
+  if(a=="bulk_ban_ids"){
+   val ids=t.split(",").map{it.trim()}.filter{it.isNotBlank()}
+   val visible=ids.firstOrNull{JarvisScreenInspector.hasText(it)}?:return "None of the audited Discord user IDs are visible yet. Your queue is still saved; open the member list or profile and say JARVIS confirm again."
+   val tapped=JarvisScreenInspector.tapText(visible)
+   if(tapped.startsWith("I could not",true))return "I can see verified user ID $visible but could not open it. The queue is still saved."
+   Handler(Looper.getMainLooper()).postDelayed({
+    if(JarvisAccessibilityService.activePackage()==PKG&&JarvisScreenInspector.tapAny("Ban","Ban Member")){
+     val remaining=ids.filterNot{it==visible};val e=p.edit()
+     if(remaining.isEmpty())e.clear() else e.putString("action","bulk_ban_ids").putString("target",remaining.joinToString(",")).putLong("until",System.currentTimeMillis()+120000)
+     e.apply()
+    }
+   },700L)
+   return "Opening verified recent account $visible. I will look for the Ban control after Discord finishes loading. The pending queue stays saved unless the control is reached."
+  }
+  if(t.isNotBlank()&&a !in setOf("create_channel","create_role")){
+   if(!JarvisScreenInspector.hasText(t))return "I cannot see $t on the current Discord screen yet. Your action is still waiting; navigate to it and say JARVIS confirm again."
+   val tapped=JarvisScreenInspector.tapText(t)
+   if(tapped.startsWith("I could not",true))return "I can see $t but could not open it. Your action is still waiting."
+  }
+  val labels=when(a){"ban"->arrayOf("Ban","Ban Member");"kick"->arrayOf("Kick","Kick Member");"timeout"->arrayOf("Timeout","Time Out");"mute"->arrayOf("Mute");"unmute"->arrayOf("Unmute");"delete_channel"->arrayOf("Delete Channel","Delete");"delete_message"->arrayOf("Delete Message","Delete");"pin"->arrayOf("Pin Message","Pin");"unpin"->arrayOf("Unpin Message","Unpin");"add_role","remove_role","edit_role"->arrayOf("Roles","Manage Roles");"create_channel"->arrayOf("Create Channel","Create");"create_role"->arrayOf("Create Role","Roles");"delete_role"->arrayOf("Delete Role","Delete");"edit_channel"->arrayOf("Edit Channel","Settings");"manage_member"->arrayOf("Manage","Moderation","Roles");else->emptyArray()}
+  if(labels.isEmpty())return "I do not recognize that pending Discord action. It has not been executed."
+  Handler(Looper.getMainLooper()).postDelayed({
+   if(JarvisAccessibilityService.activePackage()==PKG&&JarvisScreenInspector.tapAny(*labels)){
+    if((a=="add_role"||a=="remove_role")&&x.isNotBlank())Handler(Looper.getMainLooper()).postDelayed({JarvisScreenInspector.tapAny(x)},500L)
+    p.edit().clear().apply()
+   }
+  },if(t.isBlank()||a in setOf("create_channel","create_role"))200L else 700L)
+  return "Discord $a for $t is being confirmed. I will wait for Discord to load the control; the pending action stays saved if it cannot be reached."
+ }
 }
