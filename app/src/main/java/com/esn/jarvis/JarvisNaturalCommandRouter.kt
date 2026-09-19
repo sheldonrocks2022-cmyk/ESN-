@@ -60,7 +60,7 @@ object JarvisNaturalCommandRouter {
         text.startsWith("jarvis agent ") -> JarvisAgent.execute(context,text.removePrefix("jarvis agent ").trim())
         text.startsWith("agent ") -> JarvisAgent.execute(context,text.removePrefix("agent ").trim())
         text.startsWith("do this on screen ") -> JarvisAgent.execute(context,text.removePrefix("do this on screen ").trim())
-        naturalDiscord(context,text)?.let{return it}
+        naturalDiscord(context,text) != null -> naturalDiscord(context,text)
         text.startsWith("discord tap ") -> JarvisDiscordPhoneControl.tap(context,text.removePrefix("discord tap ").trim())
         text in setOf("open discord server","open the discord server","open my discord server","discord open server","open server") -> JarvisDiscordPhoneControl.openSavedServer(context)
         text.startsWith("discord open server ") -> JarvisDiscordPhoneControl.openServer(context,text.removePrefix("discord open server ").trim())
