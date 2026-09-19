@@ -30,6 +30,7 @@ object JarvisNaturalCommandRouter {
 
     private fun executeSingle(context: Context, text: String): String? {
         JarvisPersonalMemory.observe(context,text)
+        JarvisProactiveIntelligence.observeSequence(context,text)
         naturalDiscord(context,text)?.let{return it}
         return when {
         text.startsWith("create alias ") && text.contains(" for ") -> { val name=text.substringAfter("create alias ").substringBefore(" for ").trim(); val command=text.substringAfter(" for ").trim(); JarvisAliases.save(context,name,command) }
@@ -42,7 +43,13 @@ object JarvisNaturalCommandRouter {
         text.startsWith("forget ") -> JarvisPersonalMemory.forget(context,text.removePrefix("forget ").trim())
         text == "clear personal memory" -> JarvisPersonalMemory.clear(context)
         text in setOf("catch me up","give me a briefing","jarvis briefing","brief me") -> JarvisPersonalMemory.briefing(context)
-        text in setOf("what should i automate","suggest a routine","routine suggestion") -> JarvisPersonalMemory.suggestion(context)
+        text in setOf("what should i automate","suggest a routine","routine suggestion") -> JarvisProactiveIntelligence.suggestion(context)
+        text.startsWith("make ") && text.endsWith(" a priority contact") -> JarvisProactiveIntelligence.priority(context,text.removePrefix("make ").removeSuffix(" a priority contact").trim(),true)
+        text.startsWith("remove ") && text.endsWith(" as a priority contact") -> JarvisProactiveIntelligence.priority(context,text.removePrefix("remove ").removeSuffix(" as a priority contact").trim(),false)
+        text in setOf("why did you alert me","why did you tell me that","why was that important") -> JarvisProactiveIntelligence.whyAlert(context)
+        text in setOf("priority briefing","important briefing","what is important") -> JarvisProactiveIntelligence.briefing(context)
+        text in setOf("what have you learned about me","what have you learned") -> JarvisProactiveIntelligence.learned(context)
+        text in setOf("clear proactive learning","forget learned behavior") -> JarvisProactiveIntelligence.clear(context)
         text in setOf("read all notifications aloud","turn on notification reading","announce notifications") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("read_all_notifications",true).apply(); "I will read incoming notifications aloud." }
         text in setOf("stop reading notifications aloud","turn off notification reading","silence notifications") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("read_all_notifications",false).apply(); "Automatic notification reading is off." }
         text.startsWith("when i say ") && text.contains(" do ") -> saveRoutine(context,text)
