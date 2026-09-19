@@ -48,6 +48,8 @@ object JarvisNaturalCommandRouter {
         text == "call them back" || text == "call them again" -> callCurrentContact(context)
         text == "message them again" || text == "text them again" -> { val contact=JarvisContext.recall(context,"contact"); if(contact.isBlank()) "I don't have a recent contact in context." else "Tell me what you want to say to $contact." }
         text == "bluetooth status" || text == "is bluetooth connected" -> if(context.getSharedPreferences("jarvis_bluetooth",Context.MODE_PRIVATE).getBoolean("connected",false)) "A Bluetooth device is connected." else "I don't currently detect a Bluetooth device connection."
+        text == "confirm agent action" -> JarvisAgentSafety.confirm(context)
+        text == "cancel agent action" -> JarvisAgentSafety.cancel(context)
         text.startsWith("jarvis agent ") -> JarvisAgent.execute(context,text.removePrefix("jarvis agent ").trim())
         text.startsWith("agent ") -> JarvisAgent.execute(context,text.removePrefix("agent ").trim())
         text.startsWith("do this on screen ") -> JarvisAgent.execute(context,text.removePrefix("do this on screen ").trim())
@@ -56,6 +58,13 @@ object JarvisNaturalCommandRouter {
         text.startsWith("discord ban ") -> JarvisDiscordPhoneControl.ban(context,text.removePrefix("discord ban ").trim())
         text.startsWith("discord kick ") -> JarvisDiscordPhoneControl.kick(context,text.removePrefix("discord kick ").trim())
         text.startsWith("discord timeout ") -> JarvisDiscordPhoneControl.timeout(context,text.removePrefix("discord timeout ").trim())
+        text.startsWith("discord mute ") -> JarvisDiscordPhoneControl.mute(context,text.removePrefix("discord mute ").trim())
+        text.startsWith("discord unmute ") -> JarvisDiscordPhoneControl.unmute(context,text.removePrefix("discord unmute ").trim())
+        text.startsWith("discord add role ") && text.contains(" to ") -> { val role=text.substringAfter("discord add role ").substringBefore(" to ").trim(); val member=text.substringAfter(" to ").trim(); JarvisDiscordPhoneControl.addRole(context,member,role) }
+        text.startsWith("discord remove role ") && text.contains(" from ") -> { val role=text.substringAfter("discord remove role ").substringBefore(" from ").trim(); val member=text.substringAfter(" from ").trim(); JarvisDiscordPhoneControl.removeRole(context,member,role) }
+        text.startsWith("discord pin ") -> JarvisDiscordPhoneControl.pin(context,text.removePrefix("discord pin ").trim())
+        text.startsWith("discord unpin ") -> JarvisDiscordPhoneControl.unpin(context,text.removePrefix("discord unpin ").trim())
+        text.startsWith("discord delete message ") -> JarvisDiscordPhoneControl.deleteMessage(context,text.removePrefix("discord delete message ").trim())
         text.startsWith("discord delete channel ") -> JarvisDiscordPhoneControl.deleteChannel(context,text.removePrefix("discord delete channel ").trim())
         text == "confirm discord action" -> JarvisDiscordPhoneControl.confirm(context)
         text == "help" || text == "what can you do" || text == "what can i say" -> "I can open apps, send messages, control supported phone functions, read notifications, inspect your screen, run routines, chain commands, and maintain recent conversation context."

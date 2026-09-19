@@ -2,7 +2,10 @@ package com.esn.jarvis
 import android.content.Context
 object JarvisAgent {
  private const val MAX_STEPS=12
- fun execute(context:Context,goal:String):String{
+ fun execute(context:Context,goal:String):String=executeInternal(context,goal,false)
+ fun executeConfirmed(context:Context,goal:String):String=executeInternal(context,goal,true)
+ private fun executeInternal(context:Context,goal:String,confirmed:Boolean):String{
+  if(!confirmed){val gate=JarvisAgentSafety.authorize(context,goal);if(gate!=null)return gate}
   if(goal.isBlank())return "Tell me what you want me to accomplish."
   if(!JarvisAccessibilityService.hasAccess())return "Enable Phone Access so I can carry out multi-step tasks."
   val plan=JarvisReasoning.plan(context,goal,JarvisAgentTools.snapshot())
