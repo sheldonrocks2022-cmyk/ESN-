@@ -60,6 +60,7 @@ object JarvisNaturalCommandRouter {
         text.startsWith("agent ") -> JarvisAgent.execute(context,text.removePrefix("agent ").trim())
         text.startsWith("do this on screen ") -> JarvisAgent.execute(context,text.removePrefix("do this on screen ").trim())
         text.startsWith("discord tap ") -> JarvisDiscordPhoneControl.tap(context,text.removePrefix("discord tap ").trim())
+        text in setOf("open discord server","open the discord server","open my discord server","discord open server","open server") -> JarvisDiscordPhoneControl.openSavedServer(context)
         text.startsWith("discord open server ") -> JarvisDiscordPhoneControl.openServer(context,text.removePrefix("discord open server ").trim())
         text.startsWith("discord ban ") -> JarvisDiscordPhoneControl.ban(context,text.removePrefix("discord ban ").trim())
         text.startsWith("discord kick ") -> JarvisDiscordPhoneControl.kick(context,text.removePrefix("discord kick ").trim())
@@ -72,6 +73,12 @@ object JarvisNaturalCommandRouter {
         text.startsWith("discord unpin ") -> JarvisDiscordPhoneControl.unpin(context,text.removePrefix("discord unpin ").trim())
         text.startsWith("discord delete message ") -> JarvisDiscordPhoneControl.deleteMessage(context,text.removePrefix("discord delete message ").trim())
         text.startsWith("discord delete channel ") -> JarvisDiscordPhoneControl.deleteChannel(context,text.removePrefix("discord delete channel ").trim())
+        text.startsWith("discord create channel ") -> JarvisDiscordPhoneControl.createChannel(context,text.removePrefix("discord create channel ").trim())
+        text.startsWith("discord create role ") -> JarvisDiscordPhoneControl.createRole(context,text.removePrefix("discord create role ").trim())
+        text.startsWith("discord delete role ") -> JarvisDiscordPhoneControl.deleteRole(context,text.removePrefix("discord delete role ").trim())
+        text.startsWith("discord edit channel ") -> JarvisDiscordPhoneControl.editChannel(context,text.removePrefix("discord edit channel ").trim())
+        text.startsWith("discord edit role ") -> JarvisDiscordPhoneControl.editRole(context,text.removePrefix("discord edit role ").trim())
+        text.startsWith("discord manage member ") -> JarvisDiscordPhoneControl.manageMember(context,text.removePrefix("discord manage member ").trim())
         text == "confirm discord action" -> JarvisDiscordPhoneControl.confirm(context)
         text == "help" || text == "what can you do" || text == "what can i say" -> "I can open apps, send messages, control supported phone functions, read notifications, inspect your screen, run routines, chain commands, and maintain recent conversation context."
         text == "are you there" || text == "you there" || text == "hello" || text == "hey" -> "At your service."
