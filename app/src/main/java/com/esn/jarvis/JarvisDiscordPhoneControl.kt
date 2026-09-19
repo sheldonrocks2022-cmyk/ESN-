@@ -2,6 +2,9 @@ package com.esn.jarvis
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.view.accessibility.AccessibilityNodeInfo
 object JarvisDiscordPhoneControl{
  private const val PKG="com.discord"
  private fun saved(c:Context)=c.getSharedPreferences("jarvis_discord_phone",0).getString("guild_id","").orEmpty()
@@ -25,6 +28,25 @@ object JarvisDiscordPhoneControl{
   p.edit().putString("ids",found.joinToString(",")).putInt("days",days).putLong("until",System.currentTimeMillis()+120000).apply()
   return if(found.isEmpty()) "I found no supplied Discord user IDs with accounts newer than $days days." else "I found ${found.size} supplied account${if(found.size==1) "" else "s"} newer than $days days. Say confirm recent account bans within two minutes to arm the bans."
  }
+ fun massBanRecentAccounts(c:Context,days:Int=3):String{
+  if(days<1)return "The account age must be at least one day."
+  if(saved(c).isBlank())return "Save your Discord Server ID in the dashboard first."
+  if(!JarvisAccessibilityService.hasAccess())return "Enable Phone Access for JARVIS first."
+  open(c,saved(c));c.getSharedPreferences("jarvis_discord_mass_scan",0).edit().clear().putInt("days",days).putLong("started",System.currentTimeMillis()).apply()
+  Handler(Looper.getMainLooper()).postDelayed({scanRecentMemberIds(c,days,0,linkedSetOf())},1200L)
+  return "Scanning Discord for accounts newer than "+days+" days. I will only stage verified user IDs and require confirmation before bans."
+ }
+ private fun scanRecentMemberIds(c:Context,days:Int,pass:Int,seen:LinkedHashSet<String>){
+  if(JarvisAccessibilityService.activePackage()!=PKG){finishRecentScan(c,days,seen,"Discord left the foreground.");return}
+  collectIds(JarvisAccessibilityService.currentRoot(),seen)
+  if(pass>=24){finishRecentScan(c,days,seen,"Scan complete.");return}
+  val moved=JarvisAccessibilityService.scrollForward()
+  if(!moved&&pass>2){finishRecentScan(c,days,seen,"Reached the end of the visible member list.");return}
+  Handler(Looper.getMainLooper()).postDelayed({scanRecentMemberIds(c,days,pass+1,seen)},350L)
+ }
+ private fun collectIds(n:AccessibilityNodeInfo?,out:MutableSet<String>){if(n==null)return;val value=n.text?.toString().orEmpty()+" "+n.contentDescription?.toString().orEmpty();Regex("""\\b\\d{17,20}\\b""").findAll(value).forEach{out.add(it.value)};for(i in 0 until n.childCount)collectIds(n.getChild(i),out)}
+ private fun finishRecentScan(c:Context,days:Int,seen:Set<String>,note:String){val recent=seen.filter{(accountAgeDays(it)?:Long.MAX_VALUE)<days}.distinct();c.getSharedPreferences("jarvis_discord_recent_audit",0).edit().putString("ids",recent.joinToString(",")).putInt("days",days).putLong("until",System.currentTimeMillis()+120000).apply();c.getSharedPreferences("jarvis_discord_mass_scan",0).edit().putInt("seen",seen.size).putInt("recent",recent.size).putString("status",note).apply()}
+ fun recentMassBanStatus(c:Context):String{val p=c.getSharedPreferences("jarvis_discord_mass_scan",0);val seen=p.getInt("seen",-1);val recent=p.getInt("recent",-1);val status=p.getString("status","Scanning is still running.").orEmpty();return if(seen<0)"Scanning is still running." else if(recent<=0)status+" I found no verified accounts newer than "+p.getInt("days",3)+" days." else status+" I verified "+recent+" recent accounts from "+seen+" visible Discord IDs. Say confirm recent account bans within two minutes to arm them."}
  fun confirmRecentAccountBans(c:Context):String{
   val p=c.getSharedPreferences("jarvis_discord_recent_audit",0);if(System.currentTimeMillis()>p.getLong("until",0))return "No recent-account ban audit is awaiting confirmation."
   val ids=p.getString("ids","").orEmpty().split(",").filter{it.isNotBlank()};p.edit().clear().apply()
