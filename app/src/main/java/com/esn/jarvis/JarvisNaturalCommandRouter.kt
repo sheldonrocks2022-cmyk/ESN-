@@ -62,6 +62,8 @@ object JarvisNaturalCommandRouter {
         text.startsWith("discord tap ") -> JarvisDiscordPhoneControl.tap(context,text.removePrefix("discord tap ").trim())
         text in setOf("open discord server","open the discord server","open my discord server","discord open server","open server") -> JarvisDiscordPhoneControl.openSavedServer(context)
         text.startsWith("discord open server ") -> JarvisDiscordPhoneControl.openServer(context,text.removePrefix("discord open server ").trim())
+        (text.startsWith("ban everyone whose account was created in the last ") || text.startsWith("discord ban everyone whose account was created in the last ")) -> { val days=Regex("""\\d+""").find(text)?.value?.toIntOrNull()?:3;JarvisDiscordPhoneControl.massBanRecentAccounts(context,days) }
+        text in setOf("discord recent account scan status","recent account scan status","mass ban scan status") -> JarvisDiscordPhoneControl.recentMassBanStatus(context)
         text.startsWith("discord audit recent accounts ") -> { val rest=text.removePrefix("discord audit recent accounts ").trim();val days=Regex("""\d+""").find(rest)?.value?.toIntOrNull()?:3;JarvisDiscordPhoneControl.recentAccountAudit(context,days,rest) }
         text == "confirm recent account bans" -> JarvisDiscordPhoneControl.confirmRecentAccountBans(context)
         text.startsWith("discord ban ") -> JarvisDiscordPhoneControl.ban(context,text.removePrefix("discord ban ").trim())
