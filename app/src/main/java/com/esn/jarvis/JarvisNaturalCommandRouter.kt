@@ -13,6 +13,7 @@ object JarvisNaturalCommandRouter {
         if (text.isBlank()) return "I didn't catch that."
         val alias=JarvisAliases.resolve(context,text)
         if(alias.isNotBlank()){if(!seen.add(text))return "Routine stopped because a loop was detected.";return executeSafe(context,alias,depth+1,seen)}
+        JarvisPersonalMemory.learnCorrection(context,text)?.let{return it}
         val routine=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).getString(text,"").orEmpty()
         if(routine.isNotBlank()){if(!seen.add("routine:$text"))return "Routine stopped because a loop was detected.";return executeSafe(context,routine,depth+1,seen)}
         val parts = text.split(Regex("\\s+(?:and then|then|after that)\\s+")).map { it.trim() }.filter { it.isNotBlank() }
@@ -27,12 +28,21 @@ object JarvisNaturalCommandRouter {
         text.contains("what do you remember") || text.contains("recent commands") || text.contains("last command") ||
         text.contains("what did i do recently") || text.contains("what have i done recently") || text.contains("context")
 
-    private fun executeSingle(context: Context, text: String): String? = when {
+    private fun executeSingle(context: Context, text: String): String? {
+        JarvisPersonalMemory.observe(context,text)
+        naturalDiscord(context,text)?.let{return it}
+        return when {
         text.startsWith("create alias ") && text.contains(" for ") -> { val name=text.substringAfter("create alias ").substringBefore(" for ").trim(); val command=text.substringAfter(" for ").trim(); JarvisAliases.save(context,name,command) }
         text == "list aliases" || text == "what are my aliases" -> JarvisAliases.list(context)
         text.startsWith("delete alias ") -> JarvisAliases.delete(context,text.removePrefix("delete alias ").trim())
         text == "clear aliases" -> JarvisAliases.clear(context)
         text == "clear local context" || text == "forget recent context" -> { JarvisContext.clear(context); "Recent local context cleared." }
+        text in setOf("what do you remember","what do you remember about me","personal memory") -> JarvisPersonalMemory.summary(context)
+        text.startsWith("remember that ") && text.contains(" is ") -> {val x=text.removePrefix("remember that ");JarvisPersonalMemory.remember(context,x.substringBefore(" is ").trim(),x.substringAfter(" is ").trim())}
+        text.startsWith("forget ") -> JarvisPersonalMemory.forget(context,text.removePrefix("forget ").trim())
+        text == "clear personal memory" -> JarvisPersonalMemory.clear(context)
+        text in setOf("catch me up","give me a briefing","jarvis briefing","brief me") -> JarvisPersonalMemory.briefing(context)
+        text in setOf("what should i automate","suggest a routine","routine suggestion") -> JarvisPersonalMemory.suggestion(context)
         text in setOf("read all notifications aloud","turn on notification reading","announce notifications") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("read_all_notifications",true).apply(); "I will read incoming notifications aloud." }
         text in setOf("stop reading notifications aloud","turn off notification reading","silence notifications") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("read_all_notifications",false).apply(); "Automatic notification reading is off." }
         text.startsWith("when i say ") && text.contains(" do ") -> saveRoutine(context,text)
@@ -60,7 +70,6 @@ object JarvisNaturalCommandRouter {
         text.startsWith("jarvis agent ") -> JarvisAgent.execute(context,text.removePrefix("jarvis agent ").trim())
         text.startsWith("agent ") -> JarvisAgent.execute(context,text.removePrefix("agent ").trim())
         text.startsWith("do this on screen ") -> JarvisAgent.execute(context,text.removePrefix("do this on screen ").trim())
-        naturalDiscord(context,text) != null -> naturalDiscord(context,text)
         text.startsWith("discord tap ") -> JarvisDiscordPhoneControl.tap(context,text.removePrefix("discord tap ").trim())
         text in setOf("open discord server","open the discord server","open my discord server","discord open server","open server") -> JarvisDiscordPhoneControl.openSavedServer(context)
         text.startsWith("discord open server ") -> JarvisDiscordPhoneControl.openServer(context,text.removePrefix("discord open server ").trim())
@@ -144,6 +153,7 @@ object JarvisNaturalCommandRouter {
         text.contains("gaming mode") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("gaming_mode",true).apply(); "Gaming mode enabled." }
         text.contains("work mode") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("gaming_mode",false).apply(); "Work mode enabled." }
         else -> null
+        }
     }
 
     private fun naturalDiscord(context:Context,text:String):String?{
