@@ -9,7 +9,7 @@ object JarvisNaturalCommandRouter {
     fun execute(context: Context, raw: String): String? = executeSafe(context,raw,0,mutableSetOf())
     private fun executeSafe(context:Context,raw:String,depth:Int,seen:MutableSet<String>):String? {
         if(depth>8)return "Routine stopped because it exceeded the safety limit."
-        val text = normalize(raw)
+        val text = normalize(JarvisIntelligenceCore.resolve(context,raw))
         if (text.isBlank()) return "I didn't catch that."
         val alias=JarvisAliases.resolve(context,text)
         if(alias.isNotBlank()){if(!seen.add(text))return "Routine stopped because a loop was detected.";return executeSafe(context,alias,depth+1,seen)}
@@ -18,7 +18,10 @@ object JarvisNaturalCommandRouter {
         if(routine.isNotBlank()){if(!seen.add("routine:$text"))return "Routine stopped because a loop was detected.";return executeSafe(context,routine,depth+1,seen)}
         val parts = text.split(Regex("\\s+(?:and then|then|after that)\\s+")).map { it.trim() }.filter { it.isNotBlank() }
         if (parts.size in 2..6) return parts.joinToString(" ") { executeSafe(context,it,depth+1,seen) ?: JarvisCommandEngine.execute(context,it) }
-        return executeSingle(context,text) ?: if (looksConversational(text)) JarvisBrain.respond(context, raw) else null
+        JarvisIntelligenceCore.route(context,text)?.let{ JarvisIntelligenceCore.observe(context,text,it); return it }
+        val result=executeSingle(context,text) ?: if (looksConversational(text)) JarvisBrain.respond(context, raw) else null
+        if(result!=null)JarvisIntelligenceCore.observe(context,text,result)
+        return result
     }
 
     private fun looksConversational(text:String):Boolean =
@@ -38,6 +41,8 @@ object JarvisNaturalCommandRouter {
         text.startsWith("delete alias ") -> JarvisAliases.delete(context,text.removePrefix("delete alias ").trim())
         text == "clear aliases" -> JarvisAliases.clear(context)
         text == "clear local context" || text == "forget recent context" -> { JarvisContext.clear(context); "Recent local context cleared." }
+        text in setOf("intelligence core status","brain status","jarvis brain status") -> JarvisIntelligenceCore.status(context)
+        text in setOf("clear intelligence context","clear brain context") -> JarvisIntelligenceCore.clear(context)
         text in setOf("what do you remember","what do you remember about me","personal memory") -> JarvisPersonalMemory.summary(context)
         text.startsWith("remember that ") && text.contains(" is ") -> {val x=text.removePrefix("remember that ");JarvisPersonalMemory.remember(context,x.substringBefore(" is ").trim(),x.substringAfter(" is ").trim())}
         text.startsWith("forget ") -> JarvisPersonalMemory.forget(context,text.removePrefix("forget ").trim())
