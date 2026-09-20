@@ -23,9 +23,12 @@ class JarvisAccessibilityService : AccessibilityService() {
         fun focusText(text:String)=instance?.focusTextInternal(text)==true
         fun hasAccess()=instance!=null
         fun activePackage()=instance?.rootInActiveWindow?.packageName?.toString().orEmpty()
+        fun clickByIndex(index:Int)=instance?.clickByIndexInternal(index)==true
+        fun deviceControlStatus()=if(instance==null)"Phone Access is off." else "Phone Access ready in "+activePackage()+". Screen: "+JarvisScreenInspector.screenState()
     }
     override fun onServiceConnected() { super.onServiceConnected(); instance = this }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    private fun clickByIndexInternal(index:Int):Boolean{val root=rootInActiveWindow?:return false;val nodes=mutableListOf<AccessibilityNodeInfo>();fun walk(n:AccessibilityNodeInfo){if(n.isClickable&&n.isEnabled)nodes+=n;for(i in 0 until n.childCount)n.getChild(i)?.let(::walk)};walk(root);return nodes.getOrNull(index-1)?.performAction(AccessibilityNodeInfo.ACTION_CLICK)==true}
     private fun clickTextInternal(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
         for (node in root.findAccessibilityNodeInfosByText(text)) {
