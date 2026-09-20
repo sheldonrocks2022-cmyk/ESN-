@@ -131,6 +131,10 @@ object JarvisNaturalCommandRouter {
         text.startsWith("type ") && text.contains(" into ") -> { val value=text.substringAfter("type ").substringBefore(" into ").trim();val field=text.substringAfter(" into ").trim();JarvisScreenInspector.typeInto(field,value) }
         text == "run diagnostics" || text == "system diagnostics" -> JarvisDiagnostics.report(context)
         text in setOf("system health","jarvis health","health report") -> JarvisDiagnostics.health(context)
+        text in setOf("device control status","phone control status","what can you control") -> JarvisAccessibilityService.deviceControlStatus()
+        Regex("^(tap|click) clickable (item )?(\\d+)$").matches(text) -> JarvisScreenInspector.tapClickableNumber(text.substringAfterLast(" ").toInt())
+        text in setOf("open quick settings","show quick settings") -> if(JarvisAccessibilityService.quickSettings()) "Opening quick settings." else "Phone Access is required."
+        text in setOf("open notifications","show notifications","notification shade") -> if(JarvisAccessibilityService.notifications()) "Opening notifications." else "Phone Access is required."
         text in setOf("what failed","why did that fail","last failure","what went wrong") -> JarvisDiagnostics.lastFailure(context)
         text == "recover jarvis" || text == "repair jarvis" -> JarvisDiagnostics.recover(context)
         text in setOf("pause music","play music","resume music","play pause") -> JarvisMediaControl.playPause(context)
