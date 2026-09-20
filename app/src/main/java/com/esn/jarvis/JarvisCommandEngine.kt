@@ -106,7 +106,7 @@ object JarvisCommandEngine {
             command.contains("who are you") || command.contains("what are you") -> "I am JARVIS, your Android control system."
             command.contains("hello") || command.contains("hi jarvis") || command == "hey jarvis" -> "Good to hear from you. Systems are online."
             command.contains("thank you") || command.contains("thanks") -> "You're welcome."
-            else -> "I heard you. I don't have a direct handler for that action yet, but I can open installed apps, control media and device settings, search the web, manage timers and alarms, use Phone Access for screen controls, handle calls and texts, and report system information."
+            else -> "I can't complete that one yet. Try saying it another way, or ask me what I can do."
         }
     }
 
