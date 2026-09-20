@@ -38,6 +38,15 @@ object JarvisNaturalCommandRouter {
         if(JarvisMessaging.canHandle(text)) return JarvisMessaging.execute(context,text)
         naturalDiscord(context,text)?.let{return it}
         return when {
+        text in setOf("jarvis 100 status","jarvis 100.0 status","100 status") -> Jarvis100.status(context)
+        text in setOf("jarvis 100 capabilities","what can jarvis 100 do") -> Jarvis100.capabilities(context)
+        text.startsWith("objective ") -> Jarvis100.objective(context,text.removePrefix("objective ").trim())
+        text.startsWith("jarvis objective ") -> Jarvis100.objective(context,text.removePrefix("jarvis objective ").trim())
+        text.startsWith("delegate to ") && text.contains(" to do ") -> { val rest=text.removePrefix("delegate to "); Jarvis100.delegate(context,rest.substringBefore(" to do ").trim(),rest.substringAfter(" to do ").trim()) }
+        text.startsWith("prepare esn ") -> JarvisEsnOperations.prepare(context,text.removePrefix("prepare esn ").trim())
+        text in setOf("promote esn","advertise esn","prepare an esn promotion") -> JarvisEsnOperations.prepare(context,"promote ESN")
+        text in setOf("esn operations status","esn promotion status") -> JarvisEsnOperations.status(context)
+        text in setOf("show esn draft","read esn draft") -> JarvisEsnOperations.lastDraft(context)
         text.startsWith("create alias ") && text.contains(" for ") -> { val name=text.substringAfter("create alias ").substringBefore(" for ").trim(); val command=text.substringAfter(" for ").trim(); JarvisAliases.save(context,name,command) }
         text == "list aliases" || text == "what are my aliases" -> JarvisAliases.list(context)
         text.startsWith("delete alias ") -> JarvisAliases.delete(context,text.removePrefix("delete alias ").trim())
