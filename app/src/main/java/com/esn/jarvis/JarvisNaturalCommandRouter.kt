@@ -151,10 +151,10 @@ object JarvisNaturalCommandRouter {
         text in setOf("open notifications","show notifications","notification shade") -> if(JarvisAccessibilityService.notifications()) "Opening notifications." else "Phone Access is required."
         text in setOf("what failed","why did that fail","last failure","what went wrong") -> JarvisDiagnostics.lastFailure(context)
         text == "recover jarvis" || text == "repair jarvis" -> JarvisDiagnostics.recover(context)
-        text in setOf("pause music","play music","resume music","play pause") -> JarvisMediaControl.playPause(context)
+        text in setOf("pause","pause music","play music","resume music","play pause") -> JarvisMediaControl.playPause(context)
         text in setOf("next song","next track","skip song","skip track") -> JarvisMediaControl.next(context)
         text in setOf("previous song","previous track","go back a song") -> JarvisMediaControl.previous(context)
-        text == "stop music" -> JarvisMediaControl.stop(context)
+        text == "stop" || text == "stop music" -> JarvisMediaControl.stop(context)
         text == "last automation event" -> context.getSharedPreferences("jarvis_automation",Context.MODE_PRIVATE).getString("last_event","No system event recorded yet.").orEmpty()
         text == "social briefing" || text == "run my social life" || text == "social status" -> JarvisSocialManager.briefing(context)
         text == "social follow ups" || text == "who should i follow up with" -> JarvisSocialManager.followUps(context)
