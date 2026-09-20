@@ -3,7 +3,7 @@ import android.content.Context
 object JarvisUnifiedAgent {
  private const val PREFS="jarvis_unified_agent"
  fun execute(c:Context,raw:String):String{
-  val goal=JarvisIntelligenceCore.resolve(c,raw).trim()
+  val goal=JarvisIntelligence5.resolve(c,raw).trim()
   if(goal.isBlank())return "Tell me what you want me to accomplish."
   val p=c.getSharedPreferences(PREFS,0)
   p.edit().putString("goal",goal).putLong("started",System.currentTimeMillis()).putString("state","routing").apply()
