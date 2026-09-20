@@ -153,9 +153,13 @@ object JarvisNaturalCommandRouter {
         text in setOf("open quick settings","show quick settings") -> if(JarvisAccessibilityService.quickSettings()) "Opening quick settings." else "Phone Access is required."
         text in setOf("open notifications","show notifications","notification shade") -> if(JarvisAccessibilityService.notifications()) "Opening notifications." else "Phone Access is required."
         text in setOf("notification access status","notification status","can you read my notifications") -> JarvisNotificationListenerService.accessStatus(context)
+        text in setOf("read my notifications","read notifications","what are my notifications","what notifications do i have") -> JarvisNotificationListenerService.summary(context)
+        text in setOf("read my latest message","read latest message","what was my last message") -> JarvisNotificationListenerService.readLatestMessage(context)
         text in setOf("what failed","why did that fail","last failure","what went wrong") -> JarvisDiagnostics.lastFailure(context)
         text == "recover jarvis" || text == "repair jarvis" -> JarvisDiagnostics.recover(context)
-        text in setOf("pause","pause music","play music","resume music","play pause") -> JarvisMediaControl.playPause(context)
+        text in setOf("pause","pause music") -> JarvisMediaControl.pause(context)
+        text in setOf("play music","resume music","play","resume") -> JarvisMediaControl.play(context)
+        text == "play pause" -> JarvisMediaControl.playPause(context)
         text in setOf("next song","next track","skip song","skip track") -> JarvisMediaControl.next(context)
         text in setOf("previous song","previous track","go back a song") -> JarvisMediaControl.previous(context)
         text == "stop" || text == "stop music" -> JarvisMediaControl.stop(context)
