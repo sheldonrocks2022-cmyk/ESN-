@@ -10,12 +10,12 @@ object JarvisUnifiedAgent {
         if (goal.isBlank()) return "Tell me what you want me to accomplish."
         val p = c.getSharedPreferences(PREFS, 0)
         p.edit().putString("goal", goal).putLong("started", System.currentTimeMillis()).putString("state", "routing").apply()
-        val direct = JarvisNaturalCommandRouter.execute(c, goal)
+        val direct = try { JarvisNaturalCommandRouter.execute(c, goal) } catch (t: Throwable) { JarvisDiagnostics.recordFailure(c, "unified_direct", t.javaClass.simpleName); null }
         if (direct != null && !looksUnresolved(direct)) {
             record(c, goal, "direct", direct)
             return direct
         }
-        val result = JarvisAgent.execute(c, goal)
+        val result = try { JarvisAgent.execute(c, goal) } catch (t: Throwable) { JarvisDiagnostics.recordFailure(c, "unified_agent", t.javaClass.simpleName); "I stopped safely because the agent hit an internal error." }
         record(c, goal, "agent", result)
         return result
     }
