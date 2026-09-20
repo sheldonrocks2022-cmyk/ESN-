@@ -12,15 +12,15 @@ object JarvisMessaging {
     fun saveContactAlias(context:Context,alias:String,contact:String):String { if(alias.isBlank()||contact.isBlank()) return "Tell me the alias and contact."; context.getSharedPreferences(ALIAS_PREFS,Context.MODE_PRIVATE).edit().putString(alias.lowercase(),contact).apply(); return "I will remember $alias as $contact." }
     private fun alias(context:Context,name:String):String { val p=context.getSharedPreferences(ALIAS_PREFS,Context.MODE_PRIVATE); p.getString(name.lowercase(),null)?.let{return it}; val keys=p.all.keys; val best=keys.minByOrNull{distance(it,name.lowercase())}; return if(best!=null && distance(best,name.lowercase())<=1)p.getString(best,name).orEmpty() else name }
     private fun distance(a:String,b:String):Int { val d=Array(a.length+1){IntArray(b.length+1)}; for(i in 0..a.length)d[i][0]=i; for(j in 0..b.length)d[0][j]=j; for(i in 1..a.length)for(j in 1..b.length)d[i][j]=minOf(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+if(a[i-1]==b[j-1])0 else 1); return d[a.length][b.length] }
-    fun canHandle(command: String): Boolean = command.matches(Regex("^(send (a )?(text|message)( to)?|text|message) .+", RegexOption.IGNORE_CASE))
+    fun canHandle(command: String): Boolean = command.matches(Regex("^(send (a )?(text|message)( to)?|send to|text|message|tell) .+", RegexOption.IGNORE_CASE))
 
     fun execute(context: Context, raw: String): String {
         if (context.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED || context.checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
             context.startActivity(Intent(context, MessagingPermissionActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             return "Allow Contacts and SMS access, then say the command again."
         }
-        val cleaned = raw.trim().replaceFirst(Regex("^(send (a )?(text|message)( to)?|text|message)\\s+", RegexOption.IGNORE_CASE), "")
-        val match = Regex("^(.+?)\\s+(?:saying|say|that says|message)\\s+(.+)$", RegexOption.IGNORE_CASE).find(cleaned) ?: return "Say: send a message to John saying I'm on my way."
+        val cleaned = raw.trim().replaceFirst(Regex("^(send (a )?(text|message)( to)?|send to|text|message|tell)\\s+", RegexOption.IGNORE_CASE), "")
+        val match = Regex("^(.+?)\\s+(?:saying|say|that says|message|and say|and tell|tell)\\s+(.+)$", RegexOption.IGNORE_CASE).find(cleaned) ?: Regex("^(.+?)\\s*[:,-]\\s*(.+)$", RegexOption.IGNORE_CASE).find(cleaned) ?: return "Tell me who to message and what you want me to say."
         val spokenRecipient = match.groupValues[1].trim(); val recipient = alias(context, spokenRecipient); val body = match.groupValues[2].trim()
         JarvisContext.remember(context,"contact",recipient)
         if (recipient.isBlank() || body.isBlank()) return "Tell me who to message and what to say."
