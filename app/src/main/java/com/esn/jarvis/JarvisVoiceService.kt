@@ -135,10 +135,10 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         if(command in setOf("stop","stop listening","end conversation","cancel conversation")){pendingConfirmation=null;conversationUntil=0L;JarvisAgent.stop(this);speak("Conversation ended.");return}
         if(command in setOf("wait","hold on","pause")){JarvisAgent.stop(this);conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak("Standing by.");return}
         if(command.startsWith("actually ")){JarvisAgent.stop(this);conversationUntil=System.currentTimeMillis()+conversationWindowMs;handleSpeech("jarvis "+command.removePrefix("actually "));return}
-        if(command in setOf("what are you doing","progress","task progress")){conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak(JarvisAgent.status(this));return}
+        if(command in setOf("what are you doing","progress","task progress")){conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak(JarvisUnifiedAgent.status(this));return}
         if(command in setOf("cancel","never mind") && pendingConfirmation==null){conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak("Cancelled.");return}
         pendingConfirmation?.let { pending ->
-            if(command=="yes"||command=="confirm"||command=="do it"){pendingConfirmation=null;val result=JarvisCommandEngine.execute(this,pending);getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_result",result).apply();speak(result);return}
+            if(command=="yes"||command=="confirm"||command=="do it"){pendingConfirmation=null;val result=JarvisNaturalCommandRouter.execute(this,pending)?:JarvisCommandEngine.execute(this,pending);getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_result",result).apply();speak(result);return}
             if(command=="no"||command=="cancel"||command=="never mind"){pendingConfirmation=null;speak("Cancelled.");return}
             speak("Please say yes to confirm or no to cancel.");return
         }
@@ -151,7 +151,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             checkpoint("COMMAND:${command.take(80)}")
             checkpoint("UNDERSTOOD:${command.take(80)}")
             checkpoint("EXECUTING")
-            val chained=command.contains(Regex("\\s+(?:and then|then)\\s+"))
+            val chained=command.contains(Regex("\\s+(?:and then|then|after that)\\s+"))
             val result=if(chained)JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command)else if(JarvisMessaging.canHandle(command))JarvisMessaging.execute(this,command)else JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command)
             getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_command",command).putString("last_result",result).apply();appendHistory(command,result);JarvisContext.rememberCommand(this,command,result);conversationUntil=System.currentTimeMillis()+conversationWindowMs
             checkpoint("RESULT:${result.take(100)}")
