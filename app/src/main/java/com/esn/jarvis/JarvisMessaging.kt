@@ -12,7 +12,12 @@ object JarvisMessaging {
     fun saveContactAlias(context:Context,alias:String,contact:String):String { if(alias.isBlank()||contact.isBlank()) return "Tell me the alias and contact."; context.getSharedPreferences(ALIAS_PREFS,Context.MODE_PRIVATE).edit().putString(alias.lowercase(),contact).apply(); return "I will remember $alias as $contact." }
     private fun alias(context:Context,name:String):String { val p=context.getSharedPreferences(ALIAS_PREFS,Context.MODE_PRIVATE); p.getString(name.lowercase(),null)?.let{return it}; val keys=p.all.keys; val best=keys.minByOrNull{distance(it,name.lowercase())}; return if(best!=null && distance(best,name.lowercase())<=1)p.getString(best,name).orEmpty() else name }
     private fun distance(a:String,b:String):Int { val d=Array(a.length+1){IntArray(b.length+1)}; for(i in 0..a.length)d[i][0]=i; for(j in 0..b.length)d[0][j]=j; for(i in 1..a.length)for(j in 1..b.length)d[i][j]=minOf(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+if(a[i-1]==b[j-1])0 else 1); return d[a.length][b.length] }
-    fun canHandle(command: String): Boolean = command.matches(Regex("^(send (a )?(text|message)( to)?|send to|text|message|tell) .+", RegexOption.IGNORE_CASE))
+    fun canHandle(command: String): Boolean {
+        val t=command.trim()
+        if(t.matches(Regex("^tell me (about|why|what|who|how|when|where)\\b.*",RegexOption.IGNORE_CASE)))return false
+        return t.matches(Regex("^(send (a )?(text|message)( to)?|send to|text|message) .+",RegexOption.IGNORE_CASE)) ||
+            t.matches(Regex("^tell\\s+\\S+\\s+.+",RegexOption.IGNORE_CASE))
+    }
 
     fun execute(context: Context, raw: String): String {
         if (context.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED || context.checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
@@ -20,7 +25,10 @@ object JarvisMessaging {
             return "Allow Contacts and SMS access, then say the command again."
         }
         val cleaned = raw.trim().replaceFirst(Regex("^(send (a )?(text|message)( to)?|send to|text|message|tell)\\s+", RegexOption.IGNORE_CASE), "")
-        val match = Regex("^(.+?)\\s+(?:saying|say|that says|message|and say|and tell|tell)\\s+(.+)$", RegexOption.IGNORE_CASE).find(cleaned) ?: Regex("^(.+?)\\s*[:,-]\\s*(.+)$", RegexOption.IGNORE_CASE).find(cleaned) ?: return "Tell me who to message and what you want me to say."
+        val match = Regex("^(.+?)\\s+(?:saying|say|that says|message|and say|and tell|tell)\\s+(.+)$", RegexOption.IGNORE_CASE).find(cleaned)
+            ?: Regex("^(.+?)\\s*[:,-]\\s*(.+)$", RegexOption.IGNORE_CASE).find(cleaned)
+            ?: parseNaturalRecipientBody(context,cleaned)
+            ?: return "Tell me who to message and what you want me to say."
         val spokenRecipient = match.groupValues[1].trim(); val recipient = alias(context, spokenRecipient); val body = match.groupValues[2].trim()
         JarvisContext.remember(context,"contact",recipient)
         if (recipient.isBlank() || body.isBlank()) return "Tell me who to message and what to say."
@@ -30,6 +38,19 @@ object JarvisMessaging {
             if (body.length > 150) sms.sendMultipartTextMessage(number, null, sms.divideMessage(body), null, null) else sms.sendTextMessage(number, null, body, null, null)
             JarvisSocialManager.touch(context,recipient); "Message sent to $recipient."
         } catch (t: Throwable) { "I couldn't send that message: ${t.javaClass.simpleName}." }
+    }
+
+    private fun parseNaturalRecipientBody(context:Context,cleaned:String):MatchResult? {
+        val words=cleaned.trim().split(Regex("\\s+"))
+        if(words.size<2)return null
+        for(i in words.size-1 downTo 1){
+            val recipient=words.take(i).joinToString(" ")
+            if(resolveContact(context,recipient)!=null){
+                val body=words.drop(i).joinToString(" ")
+                return Regex("^(.+?)\\s+(.+)$").find("$recipient $body")
+            }
+        }
+        return Regex("^(\\S+)\\s+(.+)$").find(cleaned)
     }
 
     fun contactChoices(context:Context,name:String):List<Pair<String,String>> {
