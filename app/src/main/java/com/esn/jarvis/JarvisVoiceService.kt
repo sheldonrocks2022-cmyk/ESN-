@@ -43,7 +43,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
     private var listeningSince=0L
     private var mediaPauseUntil=0L
     private var conversationUntil=0L
-    private val conversationWindowMs=30000L
+    private val conversationWindowMs=45000L
+    private var lastUserCommand=""
 
     override fun onCreate(){super.onCreate();checkpoint("SERVICE_CREATE");try{createChannel()}catch(t:Throwable){checkpoint("CHANNEL_EXCEPTION:${t.javaClass.simpleName}:${t.message.orEmpty()}")}}
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{checkpoint("SERVICE_START");when(intent?.action){ACTION_START->activate();ACTION_STOP->deactivate();JarvisNotificationListenerService.ACTION_SPEAK_NOTIFICATION->{val n=intent.getStringExtra(JarvisNotificationListenerService.EXTRA_NOTIFICATION_TEXT).orEmpty();if(n.isNotBlank()&&getSharedPreferences(PREFS,MODE_PRIVATE).getBoolean(ACTIVE,false)&&!getSharedPreferences(PREFS,MODE_PRIVATE).getBoolean("emergency_shutdown",false)){active=true;initTts();speak(n)}else stopSelf()};else->stopSelf()};return START_NOT_STICKY}
@@ -66,6 +67,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             if(cmd.matches(Regex("^(send (a )?(text|message)( to)?|text|message) .+")))s+=100
             if(cmd.matches(Regex("^(send (a )?(text|message)( to)?|text|message) .+ (saying|say|that says|message) .+")))s+=120
             if(cmd.startsWith("open ")||cmd.startsWith("call ")||cmd.startsWith("set ")||cmd.startsWith("read ")||cmd.startsWith("reply "))s+=60
+            if(cmd.startsWith("jarvis agent ")||cmd.startsWith("figure out ")||cmd.startsWith("handle this "))s+=90
             if(n.contains("code 101")||n.contains("code one oh one")||n.contains("code one zero one"))s+=150
             if(n.contains("start up")||n.contains("startup"))s+=120
             return s
@@ -109,7 +111,10 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             return
         }
         if(command.isBlank()){conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak("Yes?");return}
-        if(command in setOf("stop","stop listening","end conversation","cancel conversation")){pendingConfirmation=null;conversationUntil=0L;speak("Conversation ended.");return}
+        if(command in setOf("stop","stop listening","end conversation","cancel conversation")){pendingConfirmation=null;conversationUntil=0L;JarvisAgent.stop(this);speak("Conversation ended.");return}
+        if(command in setOf("wait","hold on","pause")){JarvisAgent.stop(this);conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak("Standing by.");return}
+        if(command.startsWith("actually ")){JarvisAgent.stop(this);conversationUntil=System.currentTimeMillis()+conversationWindowMs;handleSpeech("jarvis "+command.removePrefix("actually "));return}
+        if(command in setOf("what are you doing","progress","task progress")){conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak(JarvisAgent.status(this));return}
         if(command in setOf("cancel","never mind") && pendingConfirmation==null){conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak("Cancelled.");return}
         pendingConfirmation?.let { pending ->
             if(command=="yes"||command=="confirm"||command=="do it"){pendingConfirmation=null;val result=JarvisCommandEngine.execute(this,pending);getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_result",result).apply();speak(result);return}
@@ -120,6 +125,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         if(rememberContact!=null){speak(JarvisMessaging.saveContactAlias(this,rememberContact.groupValues[1].trim(),rememberContact.groupValues[2].trim()));return}
         if(command=="delete all reminders"||command=="clear all reminders"||command=="clear all aliases"){pendingConfirmation=command;speak("That will remove saved information. Say yes to confirm or no to cancel.");return}
         try{
+            lastUserCommand=command
             checkpoint("PROCESSING")
             checkpoint("COMMAND:${command.take(80)}")
             checkpoint("UNDERSTOOD:${command.take(80)}")
