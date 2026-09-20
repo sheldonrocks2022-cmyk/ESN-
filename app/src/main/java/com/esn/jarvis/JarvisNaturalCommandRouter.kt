@@ -9,7 +9,7 @@ object JarvisNaturalCommandRouter {
     fun execute(context: Context, raw: String): String? = executeSafe(context,raw,0,mutableSetOf())
     private fun executeSafe(context:Context,raw:String,depth:Int,seen:MutableSet<String>):String? {
         if(depth>8)return "Routine stopped because it exceeded the safety limit."
-        val text = normalize(JarvisIntelligenceCore.resolve(context,raw))
+        val text = canonicalize(normalize(JarvisIntelligenceCore.resolve(context,raw)))
         if (text.isBlank()) return "I didn't catch that."
         val alias=JarvisAliases.resolve(context,text)
         if(alias.isNotBlank()){if(!seen.add(text))return "Routine stopped because a loop was detected.";return executeSafe(context,alias,depth+1,seen)}
@@ -17,7 +17,7 @@ object JarvisNaturalCommandRouter {
         val routine=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).getString(text,"").orEmpty()
         if(routine.isNotBlank()){if(!seen.add("routine:$text"))return "Routine stopped because a loop was detected.";return executeSafe(context,routine,depth+1,seen)}
         val parts = text.split(Regex("\\s+(?:and then|then|after that)\\s+")).map { it.trim() }.filter { it.isNotBlank() }
-        if (parts.size in 2..6) return parts.map { executeSafe(context,it,depth+1,seen) ?: JarvisCommandEngine.execute(context,it) }.joinToString(". ")
+        if (parts.size in 2..6) return parts.map { executeSafe(context,it,depth+1,seen.toMutableSet()) ?: JarvisCommandEngine.execute(context,it) }.joinToString(". ")
         JarvisIntelligenceCore.route(context,text)?.let{ JarvisIntelligenceCore.observe(context,text,it); return it }
         val result=executeSingle(context,text) ?: if (looksConversational(text)) JarvisBrain.respond(context, raw) else null
         if(result!=null)JarvisIntelligenceCore.observe(context,text,result)
@@ -34,6 +34,8 @@ object JarvisNaturalCommandRouter {
     private fun executeSingle(context: Context, text: String): String? {
         JarvisPersonalMemory.observe(context,text)
         JarvisProactiveIntelligence.observeSequence(context,text)
+        if(text.startsWith("tell him ") || text.startsWith("tell her ") || text.startsWith("tell them ") || text.startsWith("message him ") || text.startsWith("message her ") || text.startsWith("message them ")) return messageCurrentContact(context,text)
+        if(JarvisMessaging.canHandle(text)) return JarvisMessaging.execute(context,text)
         naturalDiscord(context,text)?.let{return it}
         return when {
         text.startsWith("create alias ") && text.contains(" for ") -> { val name=text.substringAfter("create alias ").substringBefore(" for ").trim(); val command=text.substringAfter(" for ").trim(); JarvisAliases.save(context,name,command) }
@@ -75,7 +77,7 @@ object JarvisNaturalCommandRouter {
         text.startsWith("delete routine ") -> deleteRoutine(context,text.removePrefix("delete routine ").trim())
         text.startsWith("edit routine ") && text.contains(" to ") -> saveNamedRoutine(context,text.replaceFirst("edit routine ","create routine "))
         text.startsWith("run routine ") -> execute(context,text.removePrefix("run routine ").trim())
-        text == "do that again" || text == "repeat that command" || text == "do it again" -> repeatLast(context)
+        text in setOf("do that again","repeat that command","do it again","repeat that","repeat","again") -> repeatLast(context)
         text == "what were we doing" || text == "what was i doing" -> { val recent=JarvisContext.recent(context);if(recent.isBlank())"I do not have recent command context." else "Recently you asked me to $recent." }
         text == "call them back" || text == "call them again" -> callCurrentContact(context)
         text == "message them again" || text == "text them again" -> { val contact=JarvisContext.recall(context,"contact"); if(contact.isBlank()) "I don't have a recent contact in context." else "Tell me what you want to say to $contact." }
@@ -94,7 +96,7 @@ object JarvisNaturalCommandRouter {
         text in setOf("resume the task","continue the task","resume agent task","continue what you were doing") -> JarvisUnifiedAgent.resume(context)
         text.startsWith("jarvis agent ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("jarvis agent ").trim())
         text.startsWith("agent ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("agent ").trim())
-        text.startsWith("do this on screen ") -> JarvisAgent.execute(context,text.removePrefix("do this on screen ").trim())
+        text.startsWith("do this on screen ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("do this on screen ").trim())
         text.startsWith("discord tap ") -> JarvisDiscordPhoneControl.tap(context,text.removePrefix("discord tap ").trim())
         text in setOf("open discord server","open the discord server","open my discord server","discord open server","open server") -> JarvisDiscordPhoneControl.openSavedServer(context)
         text.startsWith("discord open server ") -> JarvisDiscordPhoneControl.openServer(context,text.removePrefix("discord open server ").trim())
@@ -251,6 +253,16 @@ object JarvisNaturalCommandRouter {
     private fun listRoutines(context:Context):String{val names=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).all.keys.sorted();return if(names.isEmpty())"You don't have any custom routines yet." else "Your routines are: "+names.joinToString(", ")+ "."}
     private fun deleteRoutine(context:Context,name:String):String{val p=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE);if(!p.contains(name))return "I couldn't find that routine.";p.edit().remove(name).apply();return "Routine $name deleted."}
 
+    private fun canonicalize(text:String):String = when(text) {
+        "stop task","stop current task","cancel task","cancel the task","abort the task" -> "stop the task"
+        "resume task","continue task","keep going","continue" -> "resume the task"
+        "status","how is the task going","whats the task status" -> "task status"
+        "pause the music","pause audio","pause playback" -> "pause music"
+        "resume the music","resume audio","resume playback" -> "resume music"
+        "skip","skip this","skip this song" -> "skip song"
+        "previous","previous track please" -> "previous track"
+        else -> text
+    }
     private fun normalize(raw:String)=raw.lowercase(Locale.US).replace(Regex("[^a-z0-9%' ]")," ").replace(Regex("\\s+")," ").trim()
     private fun replyNotification(raw:String):String{val reply=raw.replaceFirst(Regex("(?i)^reply( that)?\\s*"),"").trim();return JarvisNotificationListenerService.replyLatest(reply)}
     private fun setSpeechRate(context:Context,delta:Float,response:String):String{val prefs=context.getSharedPreferences("jarvis",Context.MODE_PRIVATE);prefs.edit().putFloat("speech_rate",(prefs.getFloat("speech_rate",0.72f)+delta).coerceIn(0.60f,1.05f)).apply();return response}
