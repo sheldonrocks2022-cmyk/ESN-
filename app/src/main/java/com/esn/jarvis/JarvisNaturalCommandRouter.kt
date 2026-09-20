@@ -89,9 +89,9 @@ object JarvisNaturalCommandRouter {
         text in setOf("jarvis confirm","confirm") -> confirmPendingAction(context)
         text == "confirm agent action" -> JarvisAgentSafety.confirm(context)
         text == "cancel agent action" -> JarvisAgentSafety.cancel(context)
-        text in setOf("stop everything","stop the task","stop agent task","abort task") -> JarvisAgent.stop(context)
+        text in setOf("stop everything","stop the task","stop agent task","abort task") -> JarvisUnifiedAgent.stop(context)
         text in setOf("what are you doing","agent status","task status","what is the task status","progress","task progress") -> JarvisUnifiedAgent.status(context)
-        text in setOf("resume the task","continue the task","resume agent task","continue what you were doing") -> JarvisAgent.resume(context)
+        text in setOf("resume the task","continue the task","resume agent task","continue what you were doing") -> JarvisUnifiedAgent.resume(context)
         text.startsWith("jarvis agent ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("jarvis agent ").trim())
         text.startsWith("agent ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("agent ").trim())
         text.startsWith("do this on screen ") -> JarvisAgent.execute(context,text.removePrefix("do this on screen ").trim())
@@ -242,7 +242,7 @@ object JarvisNaturalCommandRouter {
 
     private fun confirmPendingAction(context:Context):String{val discord=context.getSharedPreferences("jarvis_discord_phone_pending",Context.MODE_PRIVATE);if(discord.getLong("until",0)>System.currentTimeMillis())return JarvisDiscordPhoneControl.confirm(context);val recent=context.getSharedPreferences("jarvis_discord_recent_audit",Context.MODE_PRIVATE);if(recent.getLong("until",0)>System.currentTimeMillis())return JarvisDiscordPhoneControl.confirmRecentAccountBans(context);return JarvisAgentSafety.confirm(context)}
 
-    private fun repeatLast(context:Context):String{val raw=context.getSharedPreferences("jarvis_history",Context.MODE_PRIVATE).getString("items","").orEmpty();val last=raw.lines().filter{it.isNotBlank()}.lastOrNull()?.split("|",limit=3)?.getOrNull(1).orEmpty();return if(last.isBlank()||last in setOf("do that again","repeat that command","do it again","repeat that","repeat","again"))"I don't have a previous command to repeat." else execute(context,last) ?: JarvisCommandEngine.execute(context,last)}
+    private fun repeatLast(context:Context):String{val raw=context.getSharedPreferences("jarvis_history",Context.MODE_PRIVATE).getString("items","").orEmpty();val last=raw.lines().filter{it.isNotBlank()}.lastOrNull()?.split("|",limit=3)?.getOrNull(1).orEmpty();return if(last.isBlank()||last in setOf("do that again","repeat that command","do it again","repeat that","repeat","again"))"I don't have a previous command to repeat." else executeSafe(context,last,1,mutableSetOf("repeat")) ?: JarvisCommandEngine.execute(context,last)}
     private fun messageCurrentContact(context:Context,text:String):String{val contact=JarvisContext.recall(context,"contact");if(contact.isBlank())return "I don't have a recent contact in context.";val body=text.replaceFirst(Regex("^(tell|message) (him|her|them)\\s*"),"").trim();if(body.isBlank())return "Tell me what you want to say.";return JarvisMessaging.execute(context,"send a message to $contact saying $body")}
     private fun callCurrentContact(context:Context):String{val contact=JarvisContext.recall(context,"contact");return if(contact.isBlank())"I don't have a recent contact in context." else execute(context,"call $contact") ?: JarvisCommandEngine.execute(context,"call $contact")}
 
