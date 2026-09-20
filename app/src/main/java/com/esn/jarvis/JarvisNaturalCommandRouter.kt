@@ -129,7 +129,9 @@ object JarvisNaturalCommandRouter {
         text.startsWith("scroll until you see ") -> JarvisScreenInspector.scrollTo(text.removePrefix("scroll until you see ").trim())
         text.startsWith("find and tap ") -> JarvisScreenInspector.scrollTo(text.removePrefix("find and tap ").trim())
         text.startsWith("type ") && text.contains(" into ") -> { val value=text.substringAfter("type ").substringBefore(" into ").trim();val field=text.substringAfter(" into ").trim();JarvisScreenInspector.typeInto(field,value) }
-        text == "run diagnostics" || text == "system diagnostics" || text == "system health" -> JarvisDiagnostics.report(context)
+        text == "run diagnostics" || text == "system diagnostics" -> JarvisDiagnostics.report(context)
+        text in setOf("system health","jarvis health","health report") -> JarvisDiagnostics.health(context)
+        text in setOf("what failed","why did that fail","last failure","what went wrong") -> JarvisDiagnostics.lastFailure(context)
         text == "recover jarvis" || text == "repair jarvis" -> JarvisDiagnostics.recover(context)
         text in setOf("pause music","play music","resume music","play pause") -> JarvisMediaControl.playPause(context)
         text in setOf("next song","next track","skip song","skip track") -> JarvisMediaControl.next(context)
