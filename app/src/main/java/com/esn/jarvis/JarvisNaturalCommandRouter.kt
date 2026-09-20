@@ -38,6 +38,13 @@ object JarvisNaturalCommandRouter {
         if(JarvisMessaging.canHandle(text)) return JarvisMessaging.execute(context,text)
         naturalDiscord(context,text)?.let{return it}
         return when {
+        text in setOf("video editor status","capcut agent status","editing status") -> JarvisVideoEditorAgent.status(context)
+        text.startsWith("make an edit ") -> JarvisVideoEditorAgent.start(context,text.removePrefix("make an edit ").trim())
+        text.startsWith("make me an edit ") -> JarvisVideoEditorAgent.start(context,text.removePrefix("make me an edit ").trim())
+        text.startsWith("edit in capcut ") -> JarvisVideoEditorAgent.start(context,text.removePrefix("edit in capcut ").trim())
+        text in setOf("continue the edit","continue editing","continue capcut") -> JarvisVideoEditorAgent.continueEdit(context)
+        text.startsWith("find footage for ") -> JarvisVideoEditorAgent.findFootage(context,text.removePrefix("find footage for ").trim())
+        text.startsWith("find 8k clips of ") -> JarvisVideoEditorAgent.findFootage(context,text.removePrefix("find 8k clips of ").trim()+" at the best verified source quality")
         text in setOf("jarvis 100 status","jarvis 100.0 status","100 status") -> Jarvis100.status(context)
         text in setOf("jarvis 100 capabilities","what can jarvis 100 do") -> Jarvis100.capabilities(context)
         text.startsWith("objective ") -> Jarvis100.objective(context,text.removePrefix("objective ").trim())
