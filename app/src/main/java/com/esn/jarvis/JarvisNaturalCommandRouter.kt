@@ -17,7 +17,7 @@ object JarvisNaturalCommandRouter {
         val routine=context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).getString(text,"").orEmpty()
         if(routine.isNotBlank()){if(!seen.add("routine:$text"))return "Routine stopped because a loop was detected.";return executeSafe(context,routine,depth+1,seen)}
         val parts = text.split(Regex("\\s+(?:and then|then|after that)\\s+")).map { it.trim() }.filter { it.isNotBlank() }
-        if (parts.size in 2..6) return parts.joinToString(" ") { executeSafe(context,it,depth+1,seen) ?: JarvisCommandEngine.execute(context,it) }
+        if (parts.size in 2..6) return parts.map { executeSafe(context,it,depth+1,seen) ?: JarvisCommandEngine.execute(context,it) }.joinToString(". ")
         JarvisIntelligenceCore.route(context,text)?.let{ JarvisIntelligenceCore.observe(context,text,it); return it }
         val result=executeSingle(context,text) ?: if (looksConversational(text)) JarvisBrain.respond(context, raw) else null
         if(result!=null)JarvisIntelligenceCore.observe(context,text,result)
@@ -242,9 +242,9 @@ object JarvisNaturalCommandRouter {
 
     private fun confirmPendingAction(context:Context):String{val discord=context.getSharedPreferences("jarvis_discord_phone_pending",Context.MODE_PRIVATE);if(discord.getLong("until",0)>System.currentTimeMillis())return JarvisDiscordPhoneControl.confirm(context);val recent=context.getSharedPreferences("jarvis_discord_recent_audit",Context.MODE_PRIVATE);if(recent.getLong("until",0)>System.currentTimeMillis())return JarvisDiscordPhoneControl.confirmRecentAccountBans(context);return JarvisAgentSafety.confirm(context)}
 
-    private fun repeatLast(context:Context):String{val raw=context.getSharedPreferences("jarvis_history",Context.MODE_PRIVATE).getString("items","").orEmpty();val last=raw.lines().filter{it.isNotBlank()}.lastOrNull()?.split("|",limit=3)?.getOrNull(1).orEmpty();return if(last.isBlank()||last=="do that again"||last=="repeat that command")"I don't have a previous command to repeat." else execute(context,last) ?: JarvisCommandEngine.execute(context,last)}
+    private fun repeatLast(context:Context):String{val raw=context.getSharedPreferences("jarvis_history",Context.MODE_PRIVATE).getString("items","").orEmpty();val last=raw.lines().filter{it.isNotBlank()}.lastOrNull()?.split("|",limit=3)?.getOrNull(1).orEmpty();return if(last.isBlank()||last in setOf("do that again","repeat that command","do it again","repeat that","repeat","again"))"I don't have a previous command to repeat." else execute(context,last) ?: JarvisCommandEngine.execute(context,last)}
     private fun messageCurrentContact(context:Context,text:String):String{val contact=JarvisContext.recall(context,"contact");if(contact.isBlank())return "I don't have a recent contact in context.";val body=text.replaceFirst(Regex("^(tell|message) (him|her|them)\\s*"),"").trim();if(body.isBlank())return "Tell me what you want to say.";return JarvisMessaging.execute(context,"send a message to $contact saying $body")}
-    private fun callCurrentContact(context:Context):String{val contact=JarvisContext.recall(context,"contact");return if(contact.isBlank())"I don't have a recent contact in context." else JarvisCommandEngine.execute(context,"call $contact")}
+    private fun callCurrentContact(context:Context):String{val contact=JarvisContext.recall(context,"contact");return if(contact.isBlank())"I don't have a recent contact in context." else execute(context,"call $contact") ?: JarvisCommandEngine.execute(context,"call $contact")}
 
     private fun saveRoutine(context:Context,text:String):String{val phrase=text.substringAfter("when i say ").substringBefore(" do ").trim();val actions=text.substringAfter(" do ").trim();if(phrase.isBlank()||actions.isBlank())return "I need both a phrase and an action.";context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).edit().putString(phrase,actions).apply();return "Routine saved for $phrase."}
     private fun saveNamedRoutine(context:Context,text:String):String{val name=text.substringAfter("create routine ").substringBefore(" to ").trim();val actions=text.substringAfter(" to ").trim();if(name.isBlank()||actions.isBlank())return "I need a routine name and actions.";context.getSharedPreferences("jarvis_routines",Context.MODE_PRIVATE).edit().putString(name,actions).apply();return "Routine $name saved."}
@@ -254,7 +254,7 @@ object JarvisNaturalCommandRouter {
     private fun normalize(raw:String)=raw.lowercase(Locale.US).replace(Regex("[^a-z0-9%' ]")," ").replace(Regex("\\s+")," ").trim()
     private fun replyNotification(raw:String):String{val reply=raw.replaceFirst(Regex("(?i)^reply( that)?\\s*"),"").trim();return JarvisNotificationListenerService.replyLatest(reply)}
     private fun setSpeechRate(context:Context,delta:Float,response:String):String{val prefs=context.getSharedPreferences("jarvis",Context.MODE_PRIVATE);prefs.edit().putFloat("speech_rate",(prefs.getFloat("speech_rate",0.72f)+delta).coerceIn(0.60f,1.05f)).apply();return response}
-    private fun morningBriefing(context:Context):String="Good morning. ${JarvisNotificationListenerService.readLatestMessages(context)} ${JarvisCommandEngine.execute(context,"battery status")}"
+    private fun morningBriefing(context:Context):String="Good morning. ${JarvisNotificationListenerService.readLatestMessages(context)} ${execute(context,"battery status") ?: JarvisCommandEngine.execute(context,"battery status")}"
     private fun bedtime(context:Context):String=try{context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));"Bedtime mode ready. Sound settings opened for your confirmation."}catch(_:Exception){"I couldn't open the sound settings."}
     private fun open(context:Context,action:String,response:String):String=try{context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));response}catch(_:Exception){"I couldn't open that setting."}
 }
