@@ -1,0 +1,15 @@
+package com.esn.jarvis
+import android.content.Context
+import android.content.Intent
+import java.util.Locale
+object JarvisVideoEditorAgent {
+ private const val PREFS="jarvis_video_editor"
+ private const val CAPCUT="com.lemon.lvoverseas"
+ private fun p(c:Context)=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+ fun prepare(c:Context,request:String):String{val r=request.trim();if(r.isBlank())return "Tell me what kind of edit you want.";p(c).edit().putString("goal",r).putString("state","prepared").putLong("updated",System.currentTimeMillis()).apply();return "Video edit prepared. Goal: $r. I will only use footage you are authorized to use, and I will verify source quality rather than treating an 8K label as proof of 8K."}
+ fun start(c:Context,request:String):String{val prep=prepare(c,request);if(!JarvisAccessibilityService.isEnabled(c))return prep+" Enable Phone Access before I control CapCut.";if(!JarvisAccessibilityService.hasAccess())return prep+" Phone Access is enabled but not connected yet. Reconnect it, then tell me to continue the edit.";val intent=c.packageManager.getLaunchIntentForPackage(CAPCUT)?:return prep+" CapCut is not installed or cannot be launched.";return try{c.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));p(c).edit().putString("state","capcut_opened").apply();"CapCut is open. The editing objective is saved. I can continue through visible controls with Phone Access, but I will stop rather than guess if CapCut's interface is ambiguous."}catch(t:Throwable){JarvisDiagnostics.recordFailure(c,"video_editor","capcut launch: "+t.javaClass.simpleName);p(c).edit().putString("state","failed").apply();"I could not open CapCut."}}
+ fun continueEdit(c:Context):String{if(!JarvisAccessibilityService.hasAccess())return "Phone Access is not connected.";val pkg=JarvisAccessibilityService.activePackage();if(pkg!=CAPCUT)return "Open CapCut first so I can continue the edit safely.";val state=JarvisScreenInspector.screenState();p(c).edit().putString("state","observing").putString("last_screen",state).apply();return "CapCut is ready. I can see $state. Tell me the editing action, or give JARVIS the full objective for guided execution."}
+ fun findFootage(c:Context,query:String):String{val q=query.trim();if(q.isBlank())return "Tell me what footage to find.";p(c).edit().putString("footage_query",q).putString("state","footage_requested").apply();return "Footage request saved for $q. I can search authorized sources through the existing web/app controls, but I will not download copyrighted footage from unauthorized sources or claim a source is native 8K without verification."}
+ fun status(c:Context):String{val x=p(c);val state=x.getString("state","ready").orEmpty();val goal=x.getString("goal","").orEmpty();return "Video Editor 100.0: $state."+if(goal.isBlank())"" else " Goal: $goal."}
+ fun clear(c:Context):String{p(c).edit().clear().apply();return "Video editing workspace cleared."}
+}
