@@ -206,6 +206,38 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(12.dp))
                     Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF071A2B)),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){Text("DISCORD SERVER MANAGER",color=Color(0xFF42E8F4),fontSize=12.sp);OutlinedTextField(value=discordGuildId,onValueChange={discordGuildId=it.filter(Char::isDigit)},label={Text("Server ID")},singleLine=true,modifier=Modifier.fillMaxWidth());Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){HudButton("SAVE",Modifier.weight(1f)){if(discordGuildId.isBlank())message="Enter a Discord server ID." else{getSharedPreferences("jarvis_discord_phone",MODE_PRIVATE).edit().putString("guild_id",discordGuildId).apply();message="Discord server saved for phone control."}};HudButton("OPEN",Modifier.weight(1f)){message=JarvisDiscordPhoneControl.openServer(this@MainActivity,discordGuildId)}};Text("Per-install Server ID. JARVIS controls the Discord app as the account logged into this phone. Destructive actions require confirmation.",color=Color(0xFF60778E),fontSize=9.sp)}}
                     Spacer(Modifier.height(12.dp))
+                    Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF061426)),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){
+                        Text("AGENT CONTROL CENTER",color=Color(0xFF42E8F4),fontSize=12.sp)
+                        TelemetryRow("UNIFIED AGENT",JarvisUnifiedAgent.status(this@MainActivity).take(72))
+                        TelemetryRow("SCREEN",JarvisScreenInspector.screenState().take(72))
+                        TelemetryRow("PHONE ACCESS",if(JarvisAccessibilityService.hasAccess())"READY" else "OFF")
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                            HudButton("AGENT STATUS",Modifier.weight(1f)){runQuickCommand("jarvis agent status")}
+                            HudButton("STOP TASK",Modifier.weight(1f)){message=JarvisAgent.stop(this@MainActivity)}
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                            HudButton("BRIEFING",Modifier.weight(1f)){message=JarvisPersonalMemory.briefing(this@MainActivity)}
+                            HudButton("HEALTH",Modifier.weight(1f)){message=JarvisDiagnostics.health(this@MainActivity)}
+                        }
+                    }}
+                    Spacer(Modifier.height(12.dp))
+                    Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF071A2B)),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(15.dp)){
+                        Text("MEMORY & AUTOMATION",color=Color(0xFF42E8F4),fontSize=12.sp)
+                        Text(JarvisPersonalMemory.suggestion(this@MainActivity).take(180),color=Color(0xFF9FB3C7),fontSize=10.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                            HudButton("LEARNING",Modifier.weight(1f)){message=JarvisPersonalMemory.learningReport(this@MainActivity)}
+                            HudButton("AUTOMATIONS",Modifier.weight(1f)){message=JarvisAutomationEngine.list(this@MainActivity)}
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                            HudButton("HISTORY",Modifier.weight(1f)){message=JarvisAutomationEngine.history(this@MainActivity)}
+                            HudButton("WHY",Modifier.weight(1f)){message=JarvisUnifiedAgent.explain(this@MainActivity)}
+                        }
+                    }}
+                    Spacer(Modifier.height(12.dp))
                     Button(onClick = { toggleVoice() }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A3550))) { Text(if (active) "DEACTIVATE JARVIS" else "ACTIVATE JARVIS", color = Color(0xFF7DEFF2)) }
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(onClick = { emergencyShutdown() }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("EMERGENCY SHUTDOWN", color = Color(0xFFFFB4AB)) }
