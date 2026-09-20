@@ -24,7 +24,7 @@ object JarvisUnifiedAgent {
         val p = c.getSharedPreferences(PREFS, 0)
         val g = p.getString("goal", "").orEmpty()
         val state = p.getString("state", "ready").orEmpty()
-        val route = p.getString("route", "").orEmpty()
+        val route = p.getString("last_route", "").orEmpty()
         return if (g.isBlank()) "Unified agent is ready."
         else "Unified agent: $state. Goal: $g." + if (route.isBlank()) "" else " Route: $route."
     }
