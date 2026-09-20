@@ -50,6 +50,11 @@ class JarvisNotificationListenerService : NotificationListenerService() {
         val entry="$title says: $text"
         existing.remove(entry);existing.add(entry);while(existing.size>MAX_ITEMS)existing.removeAt(0)
         prefs.edit().putString(KEY_ITEMS,existing.joinToString("\n---\n")).apply()
+        // Feed real notification events into the automation engine. Specific rules win naturally
+        // because each event is independently looked up and protected by engine cooldown/safety.
+        JarvisAutomationEngine.fire(this,"notification")
+        JarvisAutomationEngine.fire(this,"notification from "+title.lowercase())
+        JarvisAutomationEngine.fire(this,"message from "+title.lowercase())
         val score=JarvisProactiveIntelligence.score(this,title,text)
         val readAll=getSharedPreferences("jarvis",MODE_PRIVATE).getBoolean("read_all_notifications",true)
         if(score>=3||readAll){
