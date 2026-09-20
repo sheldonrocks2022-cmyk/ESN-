@@ -142,26 +142,26 @@ class MainActivity : ComponentActivity() {
             }
         }
         MaterialTheme {
-            Surface(Modifier.fillMaxSize(), color = Color(0xFF030B16)) {
+            Surface(Modifier.fillMaxSize(), color = Color(0xFF01070D)) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column { Text("JARVIS", color = Color(0xFF7DEFF2), fontSize = 30.sp); Text("PERSONAL AI CONTROL SYSTEM • v${BuildConfig.VERSION_NAME}", color = Color(0xFF7891AA), fontSize = 10.sp) }
+                        Column { Text("J.A.R.V.I.S.", color = Color(0xFF8EFFFF), fontSize = 30.sp); Text("JUST A RATHER VERY INTELLIGENT SYSTEM • v${BuildConfig.VERSION_NAME}", color = Color(0xFF5FA8B8), fontSize = 9.sp) }
                         Column(horizontalAlignment = Alignment.End) { Text(clockText, color = Color(0xFF42E8F4), fontSize = 16.sp); Text(if (active) "ONLINE" else "STANDBY", color = if (active) Color(0xFF7DEFF2) else Color(0xFF7891AA), fontSize = 10.sp) }
                     }
                     Spacer(Modifier.height(10.dp)); HudStatusStrip(active); Spacer(Modifier.height(8.dp))
                     Box(Modifier.size(240.dp), contentAlignment = Alignment.Center) {
                         Canvas(Modifier.fillMaxSize()) {
                             val c = Offset(size.width / 2f, size.height / 2f); val r = size.minDimension * 0.31f
-                            drawCircle(Color(0xFF061426), r * 1.35f); drawCircle(Color(0xFF42E8F4).copy(alpha = scan), r * 1.48f)
-                            drawCircle(Color(0xFF42E8F4), r * pulse, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f))
-                            drawArc(Color(0xFF168CFF), -35f, 105f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(5f, cap = StrokeCap.Round), topLeft = Offset(c.x-r*1.18f, c.y-r*1.18f), size = androidx.compose.ui.geometry.Size(r*2.36f, r*2.36f))
-                            drawArc(Color(0xFF6366F1), 145f, 105f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(5f, cap = StrokeCap.Round), topLeft = Offset(c.x-r*1.18f, c.y-r*1.18f), size = androidx.compose.ui.geometry.Size(r*2.36f, r*2.36f))
-                            drawCircle(Color(0xFF7DEFF2), r * 0.36f); drawCircle(Color(0xFF061426), r * 0.23f)
+                            drawCircle(Color(0xFF02131B), r * 1.35f); drawCircle(Color(0xFF00E5FF).copy(alpha = scan), r * 1.55f)
+                            drawCircle(Color(0xFF8EFFFF), r * pulse, style = androidx.compose.ui.graphics.drawscope.Stroke(2.5f))
+                            drawArc(Color(0xFF00E5FF), -35f, 105f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(5f, cap = StrokeCap.Round), topLeft = Offset(c.x-r*1.18f, c.y-r*1.18f), size = androidx.compose.ui.geometry.Size(r*2.36f, r*2.36f))
+                            drawArc(Color(0xFF0B5F72), 145f, 105f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(5f, cap = StrokeCap.Round), topLeft = Offset(c.x-r*1.18f, c.y-r*1.18f), size = androidx.compose.ui.geometry.Size(r*2.36f, r*2.36f))
+                            drawCircle(Color(0xFF8EFFFF), r * 0.36f); drawCircle(Color(0xFF01070D), r * 0.23f); drawCircle(Color(0xFFD9FFFF), r * 0.10f)
                             drawLine(Color(0xFF42E8F4).copy(alpha = scan), Offset(c.x-r*1.6f, c.y), Offset(c.x+r*1.6f, c.y), 1.5f)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(if (standbyMode) "STANDBY" else if (active) serviceStage.substringBefore(":").take(18) else "JARVIS", color = Color(0xFF7DEFF2), fontSize = 18.sp); Text(if (active) "VOICE LINK ACTIVE" else "CORE STANDBY", color = Color(0xFF7891AA), fontSize = 9.sp, modifier = Modifier.alpha(0.9f)) }
                     }
-                    Text(message, color = Color(0xFFD6E2F0), fontSize = 14.sp, modifier = Modifier.padding(horizontal = 12.dp)); Spacer(Modifier.height(12.dp))
+                    Text("◈  ${if(active) "INTERFACE ONLINE" else "INTERFACE STANDBY"}  ◈", color=Color(0xFF00E5FF), fontSize=10.sp); Spacer(Modifier.height(6.dp)); Text(message, color = Color(0xFFD6FFFF), fontSize = 14.sp, modifier = Modifier.padding(horizontal = 12.dp)); Spacer(Modifier.height(12.dp))
                     if (lastCrash.isNotBlank()) {
                         Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF241017)), shape = RoundedCornerShape(16.dp)) {
                             Column(Modifier.padding(15.dp)) {
