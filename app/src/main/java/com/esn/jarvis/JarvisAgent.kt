@@ -16,7 +16,7 @@ object JarvisAgent {
   if(!JarvisAccessibilityService.hasAccess())return "Enable Phone Access so I can carry out multi-step tasks."
   abortRequested=false
   val task=context.getSharedPreferences(PREFS,0);task.edit().putString("goal",goal).putBoolean("running",true).putString("status","planning").putInt("step",0).apply()
-  val trace=mutableListOf<String>();var stalled=0
+  val trace=mutableListOf<String>();val learned=JarvisAgentMemory.relevant(context,goal);if(learned.isNotBlank())trace+="memory guidance: "+learned.take(700);var stalled=0
   for(index in 0 until MAX_STEPS){
    if(abortRequested){JarvisAgentMemory.record(context,goal,trace,false);return "Task stopped."}
    task.edit().putInt("step",index+1).putString("status","inspecting").apply()
