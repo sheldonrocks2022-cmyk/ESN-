@@ -13,7 +13,8 @@ object JarvisAgent {
  private fun executeInternal(context:Context,goal:String,confirmed:Boolean):String{
   if(!confirmed){val gate=JarvisAgentSafety.authorize(context,goal);if(gate!=null)return gate}
   if(goal.isBlank())return "Tell me what you want me to accomplish."
-  if(!JarvisAccessibilityService.hasAccess(context))return "Enable Phone Access so I can carry out multi-step tasks."
+  if(!JarvisAccessibilityService.isEnabled(context))return "Enable Phone Access so I can carry out multi-step tasks."
+  if(!JarvisAccessibilityService.hasAccess())return "Phone Access is enabled, but Android has not connected it yet. Reopen Phone Access or restart JARVIS, then try again."
   abortRequested=false
   val task=context.getSharedPreferences(PREFS,0);task.edit().putString("goal",goal).putBoolean("running",true).putString("status","planning").putInt("step",0).apply()
   val trace=mutableListOf<String>();val learned=JarvisAgentMemory.relevant(context,goal);if(learned.isNotBlank())trace+="memory guidance: "+learned.take(700);var stalled=0
