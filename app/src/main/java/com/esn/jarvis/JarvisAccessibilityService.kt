@@ -2,6 +2,9 @@ package com.esn.jarvis
 
 import android.accessibilityservice.AccessibilityService
 import android.os.Bundle
+import android.content.Context
+import android.content.ComponentName
+import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -21,10 +24,12 @@ class JarvisAccessibilityService : AccessibilityService() {
         fun scrollForward() = instance?.scrollInternal(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) == true
         fun scrollBackward() = instance?.scrollInternal(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) == true
         fun focusText(text:String)=instance?.focusTextInternal(text)==true
+        fun isEnabled(context:Context):Boolean { val enabled=Settings.Secure.getString(context.contentResolver,Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty(); val mine=ComponentName(context,JarvisAccessibilityService::class.java).flattenToString(); return enabled.split(":").any{it.equals(mine,true)} }
         fun hasAccess()=instance!=null
+        fun hasAccess(context:Context)=instance!=null || isEnabled(context)
         fun activePackage()=instance?.rootInActiveWindow?.packageName?.toString().orEmpty()
         fun clickByIndex(index:Int)=instance?.clickByIndexInternal(index)==true
-        fun deviceControlStatus()=if(instance==null)"Phone Access is off." else "Phone Access ready in "+activePackage()+". Screen: "+JarvisScreenInspector.screenState()
+        fun deviceControlStatus(context:Context?=null)=when { instance!=null -> "Phone Access ready in "+activePackage()+". Screen: "+JarvisScreenInspector.screenState(); context!=null && isEnabled(context) -> "Phone Access is enabled, but Android has not connected the service yet. Reopen Phone Access or restart JARVIS."; else -> "Phone Access is off." }
     }
     override fun onServiceConnected() { super.onServiceConnected(); instance = this }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
