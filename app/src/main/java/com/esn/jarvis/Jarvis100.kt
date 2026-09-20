@@ -1,0 +1,12 @@
+package com.esn.jarvis
+import android.content.Context
+import org.json.JSONObject
+object Jarvis100 {
+ private const val PREFS="jarvis_100"
+ private fun p(c:Context)=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+ fun objective(c:Context,goal:String):String{val g=goal.trim();if(g.isBlank())return "Tell me the objective.";p(c).edit().putString("objective",g).putString("state","active").putLong("started",System.currentTimeMillis()).apply();return JarvisUnifiedAgent.execute(c,g)}
+ fun delegate(c:Context,specialist:String,task:String):String{val s=specialist.trim().lowercase();val t=task.trim();if(s.isBlank()||t.isBlank())return "Tell me the specialist and task.";val o=try{JSONObject(p(c).getString("delegations","{}"))}catch(_:Throwable){JSONObject()};o.put(s,t);p(c).edit().putString("delegations",o.toString()).putString("last_specialist",s).putString("last_delegated_task",t).apply();val result=when(s){"esn","promotion","community"->JarvisEsnOperations.prepare(c,t);"phone","device"->JarvisUnifiedAgent.execute(c,t);"research","development","github"->"Delegated to $s. The task is saved and ready for an authorized connected worker: $t";else->"Delegated to $s. The task is saved: $t"};p(c).edit().putString("last_delegate_result",result).apply();return result}
+ fun status(c:Context):String{val x=p(c);val objective=x.getString("objective","").orEmpty();val state=x.getString("state","ready").orEmpty();val specialist=x.getString("last_specialist","").orEmpty();val base=if(objective.isBlank())"JARVIS 100.0 is ready." else "JARVIS 100.0 is $state. Objective: $objective.";return base+if(specialist.isBlank())"" else " Last specialist: $specialist."}
+ fun capabilities(c:Context):String="JARVIS 100.0. Unified agent: "+JarvisUnifiedAgent.status(c)+" ESN operations: "+JarvisEsnOperations.status(c)+" Phone Access: "+JarvisAccessibilityService.deviceControlStatus(c)
+ fun clearObjective(c:Context):String{p(c).edit().remove("objective").putString("state","ready").apply();return "JARVIS 100.0 objective cleared."}
+}
