@@ -131,6 +131,10 @@ object JarvisNaturalCommandRouter {
         text.startsWith("type ") && text.contains(" into ") -> { val value=text.substringAfter("type ").substringBefore(" into ").trim();val field=text.substringAfter(" into ").trim();JarvisScreenInspector.typeInto(field,value) }
         text == "run diagnostics" || text == "system diagnostics" -> JarvisDiagnostics.report(context)
         text in setOf("system health","jarvis health","health report") -> JarvisDiagnostics.health(context)
+        text.startsWith("jarvis agent ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("jarvis agent "))
+        text.startsWith("accomplish this ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("accomplish this "))
+        text in setOf("unified agent status","jarvis agent status") -> JarvisUnifiedAgent.status(context)
+        text in setOf("explain your last action","why did you do that agent") -> JarvisUnifiedAgent.explain(context)
         text in setOf("what have you learned about my commands","learning report","memory learning report") -> JarvisPersonalMemory.learningReport(context)
         text in setOf("clean up memory","memory cleanup","clean your memory") -> JarvisPersonalMemory.cleanup(context)
         text.startsWith("forget what you learned about ") -> JarvisPersonalMemory.forgetTopic(context,text.removePrefix("forget what you learned about "))
