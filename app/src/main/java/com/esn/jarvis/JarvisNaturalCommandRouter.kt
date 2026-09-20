@@ -92,8 +92,8 @@ object JarvisNaturalCommandRouter {
         text in setOf("stop everything","stop the task","stop agent task","abort task") -> JarvisAgent.stop(context)
         text in setOf("what are you doing","agent status","task status","what is the task status") -> JarvisAgent.status(context)
         text in setOf("resume the task","continue the task","resume agent task","continue what you were doing") -> JarvisAgent.resume(context)
-        text.startsWith("jarvis agent ") -> JarvisAgent.execute(context,text.removePrefix("jarvis agent ").trim())
-        text.startsWith("agent ") -> JarvisAgent.execute(context,text.removePrefix("agent ").trim())
+        text.startsWith("jarvis agent ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("jarvis agent ").trim())
+        text.startsWith("agent ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("agent ").trim())
         text.startsWith("do this on screen ") -> JarvisAgent.execute(context,text.removePrefix("do this on screen ").trim())
         text.startsWith("discord tap ") -> JarvisDiscordPhoneControl.tap(context,text.removePrefix("discord tap ").trim())
         text in setOf("open discord server","open the discord server","open my discord server","discord open server","open server") -> JarvisDiscordPhoneControl.openSavedServer(context)
@@ -136,9 +136,8 @@ object JarvisNaturalCommandRouter {
         text.startsWith("type ") && text.contains(" into ") -> { val value=text.substringAfter("type ").substringBefore(" into ").trim();val field=text.substringAfter(" into ").trim();JarvisScreenInspector.typeInto(field,value) }
         text == "run diagnostics" || text == "system diagnostics" -> JarvisDiagnostics.report(context)
         text in setOf("system health","jarvis health","health report") -> JarvisDiagnostics.health(context)
-        text.startsWith("jarvis agent ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("jarvis agent "))
         text.startsWith("accomplish this ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("accomplish this "))
-        text in setOf("unified agent status","jarvis agent status") -> JarvisUnifiedAgent.status(context)
+        text in setOf("unified agent status","jarvis agent status","agent status") -> JarvisUnifiedAgent.status(context)
         text in setOf("explain your last action","why did you do that agent") -> JarvisUnifiedAgent.explain(context)
         text in setOf("what have you learned about my commands","learning report","memory learning report") -> JarvisPersonalMemory.learningReport(context)
         text in setOf("clean up memory","memory cleanup","clean your memory") -> JarvisPersonalMemory.cleanup(context)
@@ -197,7 +196,7 @@ object JarvisNaturalCommandRouter {
         text in setOf("use female voice","switch to female voice","female voice") -> {context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putString("voice_gender","female").remove("tts_voice").apply();"Female voice selected. Restart JARVIS to apply it."}
         text.contains("speak slower") || text.contains("talk slower") -> setSpeechRate(context,-0.08f,"Speech speed reduced.")
         text.contains("speak faster") || text.contains("talk faster") -> setSpeechRate(context,0.08f,"Speech speed increased.")
-        text.contains("normal speech") || text.contains("normal speed") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putFloat("speech_rate",0.76f).apply(); "Speech speed restored." }
+        text.contains("normal speech") || text.contains("normal speed") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putFloat("speech_rate",0.72f).apply(); "Speech speed restored." }
         text == "good morning" || text.contains("morning briefing") -> morningBriefing(context)
         text.contains("good night") || text.contains("bedtime mode") || text.contains("going to bed") -> bedtime(context)
         text.contains("gaming mode") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("gaming_mode",true).apply(); "Gaming mode enabled." }
@@ -254,7 +253,7 @@ object JarvisNaturalCommandRouter {
 
     private fun normalize(raw:String)=raw.lowercase(Locale.US).replace(Regex("[^a-z0-9%' ]")," ").replace(Regex("\\s+")," ").trim()
     private fun replyNotification(raw:String):String{val reply=raw.replaceFirst(Regex("(?i)^reply( that)?\\s*"),"").trim();return JarvisNotificationListenerService.replyLatest(reply)}
-    private fun setSpeechRate(context:Context,delta:Float,response:String):String{val prefs=context.getSharedPreferences("jarvis",Context.MODE_PRIVATE);prefs.edit().putFloat("speech_rate",(prefs.getFloat("speech_rate",0.76f)+delta).coerceIn(0.60f,1.05f)).apply();return response}
+    private fun setSpeechRate(context:Context,delta:Float,response:String):String{val prefs=context.getSharedPreferences("jarvis",Context.MODE_PRIVATE);prefs.edit().putFloat("speech_rate",(prefs.getFloat("speech_rate",0.72f)+delta).coerceIn(0.60f,1.05f)).apply();return response}
     private fun morningBriefing(context:Context):String="Good morning. ${JarvisNotificationListenerService.readLatestMessages(context)} ${JarvisCommandEngine.execute(context,"battery status")}"
     private fun bedtime(context:Context):String=try{context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));"Bedtime mode ready. Sound settings opened for your confirmation."}catch(_:Exception){"I couldn't open the sound settings."}
     private fun open(context:Context,action:String,response:String):String=try{context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));response}catch(_:Exception){"I couldn't open that setting."}
