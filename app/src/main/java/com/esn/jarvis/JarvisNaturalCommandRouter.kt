@@ -54,7 +54,7 @@ object JarvisNaturalCommandRouter {
         text.startsWith("remember that ") && text.contains(" is ") -> {val x=text.removePrefix("remember that ");JarvisPersonalMemory.remember(context,x.substringBefore(" is ").trim(),x.substringAfter(" is ").trim())}
         text.startsWith("forget ") -> JarvisPersonalMemory.forget(context,text.removePrefix("forget ").trim())
         text == "clear personal memory" -> JarvisPersonalMemory.clear(context)
-        text in setOf("catch me up","give me a briefing","jarvis briefing","brief me") -> JarvisPersonalMemory.briefing(context)
+        text in setOf("catch me up","give me a briefing","jarvis briefing","brief me","give me my daily briefing","what do i need to know") -> JarvisProactiveIntelligence.briefing(context)
         text in setOf("what should i automate","suggest a routine","routine suggestion") -> JarvisProactiveIntelligence.suggestion(context)
         text.startsWith("make ") && text.endsWith(" a priority contact") -> JarvisProactiveIntelligence.priority(context,text.removePrefix("make ").removeSuffix(" a priority contact").trim(),true)
         text.startsWith("remove ") && text.endsWith(" as a priority contact") -> JarvisProactiveIntelligence.priority(context,text.removePrefix("remove ").removeSuffix(" as a priority contact").trim(),false)
@@ -139,6 +139,9 @@ object JarvisNaturalCommandRouter {
         text == "run diagnostics" || text == "system diagnostics" -> JarvisDiagnostics.report(context)
         text in setOf("system health","jarvis health","health report") -> JarvisDiagnostics.health(context)
         text.startsWith("accomplish this ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("accomplish this "))
+        text.startsWith("take care of ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("take care of "))
+        text.startsWith("i need you to ") -> JarvisUnifiedAgent.execute(context,text.removePrefix("i need you to "))
+        text.startsWith("can you ") && !looksConversational(text) -> JarvisUnifiedAgent.execute(context,text.removePrefix("can you "))
         text in setOf("unified agent status","jarvis agent status") -> JarvisUnifiedAgent.status(context)
         text in setOf("explain your last action","why did you do that agent") -> JarvisUnifiedAgent.explain(context)
         text in setOf("what have you learned about my commands","learning report","memory learning report") -> JarvisPersonalMemory.learningReport(context)
