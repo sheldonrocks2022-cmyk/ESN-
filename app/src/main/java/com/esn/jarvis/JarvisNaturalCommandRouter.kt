@@ -42,6 +42,11 @@ object JarvisNaturalCommandRouter {
         text == "clear aliases" -> JarvisAliases.clear(context)
         text == "clear local context" || text == "forget recent context" -> { JarvisContext.clear(context); "Recent local context cleared." }
         text in setOf("intelligence core status","brain status","jarvis brain status") -> JarvisIntelligenceCore.status(context)
+        text in setOf("intelligence status","intelligence 5 status","jarvis intelligence status") -> JarvisIntelligence5.status(context)
+        text in setOf("verify last action","verify what you did") -> JarvisIntelligence5.verify(context)
+        text in setOf("explain your decision","why did you choose that") -> JarvisIntelligence5.explain(context)
+        text.startsWith("figure out ") -> JarvisIntelligence5.execute(context,text.removePrefix("figure out "))
+        text.startsWith("handle this ") -> JarvisIntelligence5.execute(context,text.removePrefix("handle this "))
         text in setOf("clear intelligence context","clear brain context") -> JarvisIntelligenceCore.clear(context)
         text in setOf("what do you remember","what do you remember about me","personal memory") -> JarvisPersonalMemory.summary(context)
         text.startsWith("remember that ") && text.contains(" is ") -> {val x=text.removePrefix("remember that ");JarvisPersonalMemory.remember(context,x.substringBefore(" is ").trim(),x.substringAfter(" is ").trim())}
