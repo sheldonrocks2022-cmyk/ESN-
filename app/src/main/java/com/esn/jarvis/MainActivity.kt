@@ -268,13 +268,13 @@ class MainActivity : ComponentActivity() {
     @Composable private fun TelemetryRow(label: String, value: String) { Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(label, color = Color(0xFF71879B), fontSize = 11.sp); Text(value, color = Color(0xFFD6E2F0), fontSize = 11.sp) } }
     @Composable private fun HudButton(label: String, modifier: Modifier, onClick: () -> Unit) { OutlinedButton(onClick = onClick, modifier = modifier.height(44.dp).border(1.dp, Color(0xFF164B68), RoundedCornerShape(10.dp)), shape = RoundedCornerShape(10.dp)) { Text(label, color = Color(0xFF9FEFF2), fontSize = 11.sp) } }
 
-    private fun loadVoices(){val prefs=getSharedPreferences("jarvis",MODE_PRIVATE);selectedVoice=prefs.getString("tts_voice","").orEmpty();voiceRate=prefs.getFloat("speech_rate",0.76f);voicePitch=prefs.getFloat("speech_pitch",0.68f);voiceLoader=TextToSpeech(this){status->if(status==TextToSpeech.SUCCESS){voiceNames=voiceLoader?.voices?.filter{it.locale?.language==Locale.ENGLISH.language&&!it.isNetworkConnectionRequired}?.sortedBy{it.name}?.map{it.name}?.take(3).orEmpty()}}}
+    private fun loadVoices(){val prefs=getSharedPreferences("jarvis",MODE_PRIVATE);selectedVoice=prefs.getString("tts_voice","").orEmpty();voiceRate=prefs.getFloat("speech_rate",0.72f);voicePitch=prefs.getFloat("speech_pitch",0.64f);voiceLoader=TextToSpeech(this){status->if(status==TextToSpeech.SUCCESS){voiceNames=voiceLoader?.voices?.filter{it.locale?.language==Locale.ENGLISH.language&&!it.isNetworkConnectionRequired}?.sortedBy{it.name}?.map{it.name}?.take(3).orEmpty()}}}
     private fun selectGender(gender:String){selectedVoice="";getSharedPreferences("jarvis",MODE_PRIVATE).edit().putString("voice_gender",gender).remove("tts_voice").apply();message="${gender.replaceFirstChar{it.uppercase()}} voice selected. Deactivate and reactivate JARVIS to apply."}
     private fun selectVoice(name:String){selectedVoice=name;getSharedPreferences("jarvis",MODE_PRIVATE).edit().putString("tts_voice",name).apply();message="Voice selected. Restart JARVIS voice to apply."}
     private fun saveVoiceTuning(){getSharedPreferences("jarvis",MODE_PRIVATE).edit().putFloat("speech_rate",voiceRate).putFloat("speech_pitch",voicePitch).apply()}
 
     private fun runQuickCommand(command: String) {
-        val result = JarvisCommandEngine.execute(this, command)
+        val result = JarvisNaturalCommandRouter.execute(this, command) ?: JarvisCommandEngine.execute(this, command)
         message = result
         commandHistory.add("${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())}  •  $command  →  $result")
         if (commandHistory.size > 12) commandHistory.removeAt(0)
