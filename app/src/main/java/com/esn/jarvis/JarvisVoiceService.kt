@@ -132,8 +132,8 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             return
         }
         if(command.isBlank()){conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak("Yes?");return}
-        if(command in setOf("stop","stop listening","end conversation","cancel conversation")){pendingConfirmation=null;conversationUntil=0L;JarvisUnifiedAgent.stop(this);speak("Conversation ended.");return}
-        if(command in setOf("wait","hold on","pause")){JarvisUnifiedAgent.stop(this);conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak("Standing by.");return}
+        if(command in setOf("stop listening","end conversation","cancel conversation")){pendingConfirmation=null;conversationUntil=0L;JarvisUnifiedAgent.stop(this);speak("Conversation ended.");return}
+        if(command in setOf("wait","hold on")){JarvisUnifiedAgent.stop(this);conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak("Standing by.");return}
         if(command.startsWith("actually ")){JarvisUnifiedAgent.stop(this);conversationUntil=System.currentTimeMillis()+conversationWindowMs;handleSpeech("jarvis "+command.removePrefix("actually "));return}
         if(command in setOf("what are you doing","progress","task progress")){conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak(JarvisUnifiedAgent.status(this));return}
         if(command in setOf("cancel","never mind") && pendingConfirmation==null){conversationUntil=System.currentTimeMillis()+conversationWindowMs;speak("Cancelled.");return}
@@ -152,7 +152,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
             checkpoint("UNDERSTOOD:${command.take(80)}")
             checkpoint("EXECUTING")
             val chained=command.contains(Regex("\\s+(?:and then|then|after that)\\s+"))
-            val result=if(chained)JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command)else if(JarvisMessaging.canHandle(command))JarvisMessaging.execute(this,command)else JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command)
+            val result=JarvisNaturalCommandRouter.execute(this,command)?:JarvisCommandEngine.execute(this,command)
             getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("last_command",command).putString("last_result",result).apply();appendHistory(command,result);JarvisContext.rememberCommand(this,command,result);conversationUntil=System.currentTimeMillis()+conversationWindowMs
             checkpoint("RESULT:${result.take(100)}")
             speak(result)
