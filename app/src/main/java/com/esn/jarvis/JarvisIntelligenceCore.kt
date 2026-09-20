@@ -3,11 +3,13 @@ import android.content.Context
 import java.util.Locale
 object JarvisIntelligenceCore {
  private const val PREFS="jarvis_intelligence_core"
+ private const val CONTEXT_TTL=15*60*1000L
  fun resolve(context:Context,raw:String):String{
   val p=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
   var text=raw.trim().lowercase(Locale.US)
-  val contact=JarvisContext.recall(context,"contact")
-  val app=p.getString("last_app","").orEmpty()
+  val fresh=System.currentTimeMillis()-p.getLong("updated",0)<CONTEXT_TTL
+  val contact=if(fresh)JarvisContext.recall(context,"contact") else ""
+  val app=if(fresh)p.getString("last_app","").orEmpty() else ""
   if(contact.isNotBlank()) text=text.replace(Regex("\\b(him|her|them)\\b"),contact)
   if(app.isNotBlank()) text=text.replace("that app",app).replace("the app",app)
   return text
@@ -30,6 +32,7 @@ object JarvisIntelligenceCore {
   }
   return null
  }
+ fun learnedPath(context:Context,goal:String):String{val learned=JarvisAgentMemory.relevant(context,goal);return if(learned.isBlank())"No similar learned task path yet." else learned}
  fun status(context:Context):String{val p=context.getSharedPreferences(PREFS,0);return "Intelligence core ready. Last command: "+p.getString("last_command","none").orEmpty()+". "+JarvisAgent.status(context)}
  fun clear(context:Context):String{context.getSharedPreferences(PREFS,0).edit().clear().apply();return "Intelligence core context cleared."}
 }
