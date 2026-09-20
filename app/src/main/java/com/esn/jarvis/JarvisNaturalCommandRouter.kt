@@ -60,6 +60,11 @@ object JarvisNaturalCommandRouter {
         text.startsWith("when i say ") && text.contains(" do ") -> saveRoutine(context,text)
         text.startsWith("when ") && text.contains(" do ") -> { val event=text.substringAfter("when ").substringBefore(" do ").trim();val action=text.substringAfter(" do ").trim();JarvisAutomationEngine.setTrigger(context,event,action) }
         text == "list automations" || text == "list triggers" -> JarvisAutomationEngine.list(context)
+        text in setOf("pause automations","pause all automations") -> JarvisAutomationEngine.pause(context,true)
+        text in setOf("resume automations","resume all automations") -> JarvisAutomationEngine.pause(context,false)
+        text in setOf("automation history","what did you do automatically today","what did you do automatically") -> JarvisAutomationEngine.history(context)
+        text in setOf("why did you do that","why did that automation run") -> JarvisAutomationEngine.why(context)
+        text in setOf("confirm automation","confirm automatic action") -> JarvisAutomationEngine.confirm(context)
         text.startsWith("create routine ") && text.contains(" to ") -> saveNamedRoutine(context,text)
         text == "list routines" || text == "what are my routines" -> listRoutines(context)
         text.startsWith("delete routine ") -> deleteRoutine(context,text.removePrefix("delete routine ").trim())
