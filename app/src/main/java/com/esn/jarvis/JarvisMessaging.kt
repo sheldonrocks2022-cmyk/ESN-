@@ -43,7 +43,7 @@ object JarvisMessaging {
     private fun parseNaturalRecipientBody(context:Context,cleaned:String):MatchResult? {
         val words=cleaned.trim().split(Regex("\\s+"))
         if(words.size<2)return null
-        for(i in words.size-1 downTo 1){
+        for(i in 1 until words.size){
             val recipient=words.take(i).joinToString(" ")
             if(resolveContact(context,recipient)!=null){
                 val body=words.drop(i).joinToString(" ")
