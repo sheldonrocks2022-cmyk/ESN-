@@ -38,6 +38,12 @@ object JarvisNaturalCommandRouter {
         if(JarvisMessaging.canHandle(text)) return JarvisMessaging.execute(context,text)
         naturalDiscord(context,text)?.let{return it}
         return when {
+        text in setOf("task brain status","autonomous task status","autonomy status") -> JarvisTaskBrain.status(context)
+        text.startsWith("autonomous objective ") -> JarvisTaskBrain.run(context,text.removePrefix("autonomous objective ").trim())
+        text.startsWith("complete this ") -> JarvisTaskBrain.run(context,text.removePrefix("complete this ").trim())
+        text in setOf("resume autonomous task","recover task","resume task brain") -> JarvisTaskBrain.resume(context)
+        text in setOf("stop autonomous task","stop task brain") -> JarvisTaskBrain.stop(context)
+        text in setOf("task brain history","autonomous task history") -> JarvisTaskBrain.history(context)
         text in setOf("video editor status","capcut agent status","editing status") -> JarvisVideoEditorAgent.status(context)
         text.startsWith("make an edit ") -> JarvisVideoEditorAgent.start(context,text.removePrefix("make an edit ").trim())
         text.startsWith("make me an edit ") -> JarvisVideoEditorAgent.start(context,text.removePrefix("make me an edit ").trim())
