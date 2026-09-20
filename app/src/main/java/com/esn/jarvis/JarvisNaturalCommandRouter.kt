@@ -145,10 +145,11 @@ object JarvisNaturalCommandRouter {
         text in setOf("clean up memory","memory cleanup","clean your memory") -> JarvisPersonalMemory.cleanup(context)
         text.startsWith("forget what you learned about ") -> JarvisPersonalMemory.forgetTopic(context,text.removePrefix("forget what you learned about "))
         text.startsWith("what have you learned about ") -> JarvisIntelligenceCore.learnedPath(context,text.removePrefix("what have you learned about "))
-        text in setOf("device control status","phone control status","what can you control") -> JarvisAccessibilityService.deviceControlStatus()
+        text in setOf("device control status","phone control status","what can you control") -> JarvisAccessibilityService.deviceControlStatus(context)
         Regex("^(tap|click) clickable (item )?(\\d+)$").matches(text) -> JarvisScreenInspector.tapClickableNumber(text.substringAfterLast(" ").toInt())
         text in setOf("open quick settings","show quick settings") -> if(JarvisAccessibilityService.quickSettings()) "Opening quick settings." else "Phone Access is required."
         text in setOf("open notifications","show notifications","notification shade") -> if(JarvisAccessibilityService.notifications()) "Opening notifications." else "Phone Access is required."
+        text in setOf("notification access status","notification status","can you read my notifications") -> JarvisNotificationListenerService.accessStatus(context)
         text in setOf("what failed","why did that fail","last failure","what went wrong") -> JarvisDiagnostics.lastFailure(context)
         text == "recover jarvis" || text == "repair jarvis" -> JarvisDiagnostics.recover(context)
         text in setOf("pause","pause music","play music","resume music","play pause") -> JarvisMediaControl.playPause(context)
