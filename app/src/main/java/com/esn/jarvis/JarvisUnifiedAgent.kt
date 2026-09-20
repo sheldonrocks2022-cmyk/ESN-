@@ -13,7 +13,7 @@ object JarvisUnifiedAgent {
   record(c,goal,"agent",result)
   return result
  }
- fun status(c:Context):String{val p=c.getSharedPreferences(PREFS,0);val g=p.getString("goal","").orEmpty();return if(g.isBlank())"Unified agent is ready." else "Unified agent: "+p.getString("state","ready").orEmpty()+". Goal: $g. "+JarvisAgent.status(c)}
+ fun status(c:Context):String{val p=c.getSharedPreferences(PREFS,0);val g=p.getString("goal","").orEmpty();val state=p.getString("state","ready").orEmpty();val route=p.getString("route","").orEmpty();return if(g.isBlank())"Unified agent is ready." else "Unified agent: $state. Goal: $g."+if(route.isBlank())"" else " Route: $route."}
  fun explain(c:Context):String{val p=c.getSharedPreferences(PREFS,0);return p.getString("last_explanation","No unified agent action has run yet.").orEmpty()}
  fun clear(c:Context):String{c.getSharedPreferences(PREFS,0).edit().clear().apply();return "Unified agent context cleared."}
  private fun record(c:Context,g:String,route:String,r:String){c.getSharedPreferences(PREFS,0).edit().putString("state","completed").putString("last_route",route).putString("last_result",r).putString("last_explanation","I routed '$g' through $route. Result: "+r.take(240)).putLong("completed",System.currentTimeMillis()).apply();JarvisIntelligenceCore.observe(c,g,r);JarvisPersonalMemory.observe(c,g)}
