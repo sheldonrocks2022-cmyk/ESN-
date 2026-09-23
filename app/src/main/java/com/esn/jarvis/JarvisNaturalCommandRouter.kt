@@ -38,6 +38,8 @@ object JarvisNaturalCommandRouter {
         if(JarvisMessaging.canHandle(text)) return JarvisMessaging.execute(context,text)
         naturalDiscord(context,text)?.let{return it}
         return when {
+        text in setOf("screen intelligence","screen intelligence status","vision status") -> JarvisScreenInspector.intelligenceSummary()
+        text.startsWith("smart tap ") -> JarvisScreenInspector.tapBestMatch(text.removePrefix("smart tap ").trim())
         text in setOf("task brain status","autonomous task status","autonomy status") -> JarvisTaskBrain.status(context)
         text.startsWith("autonomous objective ") -> JarvisTaskBrain.run(context,text.removePrefix("autonomous objective ").trim())
         text.startsWith("complete this ") -> JarvisTaskBrain.run(context,text.removePrefix("complete this ").trim())
