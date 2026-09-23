@@ -66,5 +66,6 @@ object JarvisUnifiedAgent {
     private fun looksUnresolved(r: String) =
         r.startsWith("I don't know how", true) ||
         r.startsWith("I couldn't understand", true) ||
-        r.startsWith("I didn't catch", true)
+        r.startsWith("I didn't catch", true) ||
+        r.startsWith("I can't complete that one yet", true)
 }
