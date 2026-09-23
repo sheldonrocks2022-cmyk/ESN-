@@ -149,6 +149,14 @@ object JarvisNaturalCommandRouter {
         text.startsWith("discord manage member ") -> JarvisDiscordPhoneControl.manageMember(context,text.removePrefix("discord manage member ").trim())
         text in setOf("confirm discord action","confirm discord","discord confirm","confirm the discord action","confirm discord command","confirm discord moderation") -> JarvisDiscordPhoneControl.confirm(context)
         text == "help" || text == "what can you do" || text == "what can i say" -> "I can open apps, send messages, control supported phone functions, read notifications, inspect your screen, run routines, chain commands, and maintain recent conversation context."
+        text in setOf("personality status","jarvis personality status") -> JarvisPersonality.status(context)
+        text in setOf("call me sir","address me as sir","start calling me sir") -> JarvisPersonality.setSir(context,true)
+        text in setOf("stop calling me sir","don't call me sir","do not call me sir") -> JarvisPersonality.setSir(context,false)
+        text in setOf("chatgpt handoff status","last chatgpt handoff") -> JarvisChatGptHandoff.status(context)
+        (text.startsWith("ask chatgpt to ") || text.startsWith("tell chatgpt to ") || text.startsWith("have chatgpt ")) -> {
+            val request=text.replaceFirst(Regex("^(ask chatgpt to|tell chatgpt to|have chatgpt)\\s+"),"").trim()
+            JarvisChatGptHandoff.handoff(context,request)
+        }
         text == "are you there" || text == "you there" || text == "hello" || text == "hey" -> "At your service."
         text.contains("what am i looking at") || text.contains("what is on my screen") || text.contains("read this screen") || text.contains("describe my screen") -> JarvisScreenInspector.describeScreen()
         text.startsWith("do you see ") -> if(JarvisScreenInspector.hasText(text.removePrefix("do you see ").trim())) "Yes, I can see that on the current screen." else "I don't see that on the current screen."
