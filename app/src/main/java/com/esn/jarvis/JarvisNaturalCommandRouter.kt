@@ -86,6 +86,8 @@ object JarvisNaturalCommandRouter {
         text in setOf("priority briefing","important briefing","what is important") -> JarvisProactiveIntelligence.briefing(context)
         text in setOf("what have you learned about me","what have you learned") -> JarvisProactiveIntelligence.learned(context)
         text in setOf("clear proactive learning","forget learned behavior") -> JarvisProactiveIntelligence.clear(context)
+        text in setOf("notification detection status","notification listener status","are you detecting notifications") -> JarvisNotificationListenerService.detectionStatus(context)
+        text in setOf("read all my notifications","read every notification","what are all my notifications") -> JarvisNotificationListenerService.readAll(context)
         text in setOf("read all notifications aloud","turn on notification reading","announce notifications") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("read_all_notifications",true).apply(); "I will read incoming notifications aloud." }
         text in setOf("stop reading notifications aloud","turn off notification reading","silence notifications") -> { context.getSharedPreferences("jarvis",Context.MODE_PRIVATE).edit().putBoolean("read_all_notifications",false).apply(); "Automatic notification reading is off." }
         text.startsWith("when i say ") && text.contains(" do ") -> saveRoutine(context,text)
