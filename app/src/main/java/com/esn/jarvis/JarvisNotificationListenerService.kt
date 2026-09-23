@@ -15,7 +15,7 @@ class JarvisNotificationListenerService : NotificationListenerService() {
     companion object {
         private const val PREFS="jarvis_notifications"
         private const val KEY_ITEMS="items"
-        private const val MAX_ITEMS=25
+        private const val MAX_ITEMS=100
         private const val KEY_FOCUS="focus_key"
         @Volatile private var instance:JarvisNotificationListenerService?=null
         const val ACTION_SPEAK_NOTIFICATION="com.esn.jarvis.SPEAK_NOTIFICATION"
@@ -28,6 +28,8 @@ class JarvisNotificationListenerService : NotificationListenerService() {
         private fun ensureConnection(context:Context){ if(instance==null && isEnabled(context))requestReconnect(context); syncActive(context) }
         private fun syncActive(context:Context){ val svc=instance?:return; val live=svc.activeNotifications?.filter{it.packageName!=svc.packageName}.orEmpty(); if(live.isEmpty())return; val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE); val items=prefs.getString(KEY_ITEMS,"").orEmpty().split("\n---\n").filter{it.isNotBlank()}.toMutableList(); live.sortedBy{it.postTime}.forEach{sbn-> val e=sbn.notification.extras; val title=e?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty(); val body=e?.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty(); if(title.isNotBlank()&&body.isNotBlank()){val entry="$title says: $body";items.remove(entry);items.add(entry)}}; while(items.size>MAX_ITEMS)items.removeAt(0); prefs.edit().putString(KEY_ITEMS,items.joinToString("\n---\n")).apply() }
 
+        fun detectionStatus(context:Context):String{ensureConnection(context);val raw=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY_ITEMS,"").orEmpty();val count=raw.split("\n---\n").count{it.isNotBlank()};return accessStatus(context)+" Detection is active for eligible notifications. Saved recent notifications: $count."}
+        fun readAll(context:Context):String{ensureConnection(context);val raw=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY_ITEMS,"").orEmpty();val items=raw.split("\n---\n").filter{it.isNotBlank()};return if(items.isEmpty())"You have no recent notifications saved." else "Here are all "+items.size+" recent notifications. "+items.joinToString(" ")}
         fun readLatestMessages(context:Context):String{ensureConnection(context);val raw=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY_ITEMS,"").orEmpty();if(raw.isBlank())return "I don't have any recent message notifications to read.";val items=raw.split("\n---\n").filter{it.isNotBlank()}.takeLast(5).reversed();return "Here are your most recent messages. "+items.joinToString(" ")}
         fun readMatching(context:Context,query:String):String{ensureConnection(context);val raw=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY_ITEMS,"").orEmpty();val q=query.trim().lowercase();val items=raw.split("\n---\n").filter{it.isNotBlank()&&it.lowercase().contains(q)}.takeLast(5).reversed();return if(items.isEmpty())"I couldn't find recent notifications matching $query." else "Recent notifications matching $query. "+items.joinToString(" ")}
         fun dismissMatching(query:String):String{val svc=instance?:return "Notification Access is not active.";val q=query.trim().lowercase();val match=svc.activeNotifications?.filter{it.packageName!=svc.packageName}?.sortedByDescending{it.postTime}?.firstOrNull{sbn->val e=sbn.notification.extras;val title=e?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty();val text=e?.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty();("$title $text ${sbn.packageName}").lowercase().contains(q)}?:return "I couldn't find a notification matching $query.";return try{svc.cancelNotification(match.key);"Matching notification dismissed."}catch(_:Exception){"I couldn't dismiss that notification."}}
@@ -50,26 +52,27 @@ class JarvisNotificationListenerService : NotificationListenerService() {
         val extras=sbn.notification.extras?:return
         val title=extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
         val text=extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
-        if(text.isBlank()||TextUtils.isEmpty(title))return
+        if(text.isBlank()&&TextUtils.isEmpty(title))return
         val lower="$title $text".lowercase()
         val muted=getSharedPreferences(PREFS,MODE_PRIVATE).getStringSet("muted_sources",emptySet()).orEmpty()
         if(muted.any{lower.contains(it)})return
         if(listOf("download","update available","charging","battery","silent notifications").any{lower.contains(it)})return
         val prefs=getSharedPreferences(PREFS,MODE_PRIVATE)
         val existing=prefs.getString(KEY_ITEMS,"").orEmpty().split("\n---\n").filter{it.isNotBlank()}.toMutableList()
-        val entry="$title says: $text"
+        val source=if(title.isBlank())sbn.packageName else title
+        val entry=if(text.isBlank())"$source posted a notification." else "$source says: $text"
         existing.remove(entry);existing.add(entry);while(existing.size>MAX_ITEMS)existing.removeAt(0)
         prefs.edit().putString(KEY_ITEMS,existing.joinToString("\n---\n")).apply()
         // Feed real notification events into the automation engine. Specific rules win naturally
         // because each event is independently looked up and protected by engine cooldown/safety.
         JarvisAutomationEngine.fire(this,"notification")
-        JarvisAutomationEngine.fire(this,"notification from "+title.lowercase())
-        JarvisAutomationEngine.fire(this,"message from "+title.lowercase())
-        val score=JarvisProactiveIntelligence.score(this,title,text)
+        JarvisAutomationEngine.fire(this,"notification from "+source.lowercase())
+        JarvisAutomationEngine.fire(this,"message from "+source.lowercase())
+        val score=JarvisProactiveIntelligence.score(this,source,text)
         val readAll=getSharedPreferences("jarvis",MODE_PRIVATE).getBoolean("read_all_notifications",true)
         if(score>=3||readAll){
-            if(score>=3)JarvisProactiveIntelligence.recordAlert(this,if(JarvisProactiveIntelligence.isPriority(this,title))"$title is a priority contact" else "the notification appeared important")
-            try{startService(Intent(this,JarvisVoiceService::class.java).setAction(ACTION_SPEAK_NOTIFICATION).putExtra(EXTRA_NOTIFICATION_TEXT,"Notification from $title. $text"))}catch(_:Throwable){}
+            if(score>=3)JarvisProactiveIntelligence.recordAlert(this,if(JarvisProactiveIntelligence.isPriority(this,source))"$source is a priority contact" else "the notification appeared important")
+            try{startService(Intent(this,JarvisVoiceService::class.java).setAction(ACTION_SPEAK_NOTIFICATION).putExtra(EXTRA_NOTIFICATION_TEXT,"Notification from $source. $text"))}catch(_:Throwable){}
         }
     }
 }
