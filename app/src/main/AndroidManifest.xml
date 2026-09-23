@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <queries><intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent><package android:name="com.discord" /><package android:name="com.google.android.youtube" /><package android:name="com.mojang.minecraftpe" /><package android:name="com.snapchat.android" /><package android:name="com.google.android.gm" /><package android:name="com.spotify.music" /></queries>
+    <queries><intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent><package android:name="com.discord" /><package android:name="com.google.android.youtube" /><package android:name="com.mojang.minecraftpe" /><package android:name="com.snapchat.android" /><package android:name="com.google.android.gm" /><package android:name="com.spotify.music" /><package android:name="com.openai.chatgpt" /></queries>
     <application android:name=".JarvisApplication" android:allowBackup="false" android:label="JARVIS" android:icon="@drawable/jarvis_icon" android:roundIcon="@drawable/jarvis_icon" android:theme="@style/Theme.Jarvis">
         <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity>
         <activity android:name=".MessagingPermissionActivity" android:exported="false" android:theme="@style/Theme.Jarvis" />
