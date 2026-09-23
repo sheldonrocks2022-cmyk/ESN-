@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.Settings
+import android.app.SearchManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -114,9 +115,21 @@ object JarvisCommandEngine {
         val query=original.replaceFirst(Regex("(?i)^(play|put on)\\s+"),"").replaceFirst(Regex("(?i)\\s+on spotify$"),"").trim()
         if(query.isBlank())return "Tell me what song to play on Spotify."
         return try{
-            val intent=Intent(Intent.ACTION_VIEW,Uri.parse("spotify:search:${Uri.encode(query)}")).setPackage("com.spotify.music").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent);JarvisContext.remember(context,"media","spotify");"Opening $query in Spotify."
-        }catch(_:Exception){"I couldn't open Spotify."}
+            val playable=query.replaceFirst(Regex("(?i)^(song|track|album|artist|playlist)\\s+"),"").trim()
+            val playIntent=Intent("android.media.action.MEDIA_PLAY_FROM_SEARCH")
+                .setPackage("com.spotify.music")
+                .putExtra(SearchManager.QUERY,playable)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(playIntent)
+            JarvisContext.remember(context,"media","spotify")
+            JarvisContext.remember(context,"media_query",playable)
+            "Playing $playable on Spotify."
+        }catch(_:Exception){
+            try{
+                val intent=Intent(Intent.ACTION_VIEW,Uri.parse("spotify:search:${Uri.encode(query)}")).setPackage("com.spotify.music").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent);JarvisContext.remember(context,"media","spotify");"Spotify could not accept direct playback, so I opened the search results instead."
+            }catch(_:Exception){"I couldn't open Spotify."}
+        }
     }
     private fun displayName(target: String) = target.split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercaseChar() } }
     private fun tryLaunchKnownApp(context: Context, target: String): Boolean {
