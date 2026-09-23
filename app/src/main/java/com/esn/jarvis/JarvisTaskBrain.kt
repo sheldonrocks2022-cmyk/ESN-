@@ -82,7 +82,7 @@ object JarvisTaskBrain {
 
  private fun classify(r:String):String {
   val x=r.lowercase()
-  return if(x.contains("stopped safely")||x.contains("couldn't")||x.contains("could not")||x.contains("safety limit")||x.contains("stalled"))"needs_attention" else "completed"
+  return if(x.contains("stopped safely")||x.contains("couldn't")||x.contains("could not")||x.contains("safety limit")||x.contains("stalled")||x.contains("can't complete that one yet"))"needs_attention" else "completed"
  }
  private fun active(c:Context):JSONObject? {val id=p(c).getString("active_id","").orEmpty();val q=load(c);for(i in q.length()-1 downTo 0){val t=q.optJSONObject(i)?:continue;if(id.isBlank()||t.optString("id")==id)return t};return null}
  private fun replace(c:Context,task:JSONObject){val q=load(c);val out=JSONArray();var found=false;for(i in 0 until q.length()){val t=q.optJSONObject(i)?:continue;if(t.optString("id")==task.optString("id")){out.put(task);found=true}else out.put(t)};if(!found)out.put(task);save(c,trim(out))}
