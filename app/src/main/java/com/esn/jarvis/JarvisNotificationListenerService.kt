@@ -17,6 +17,7 @@ class JarvisNotificationListenerService : NotificationListenerService() {
         private const val KEY_ITEMS="items"
         private const val MAX_ITEMS=100
         private const val KEY_FOCUS="focus_key"
+        private const val SEP="\n---\n"
         @Volatile private var instance:JarvisNotificationListenerService?=null
         const val ACTION_SPEAK_NOTIFICATION="com.esn.jarvis.SPEAK_NOTIFICATION"
         const val EXTRA_NOTIFICATION_TEXT="notification_text"
@@ -60,9 +61,10 @@ class JarvisNotificationListenerService : NotificationListenerService() {
         if(muted.any{lower.contains(it)})return
         val prefs=getSharedPreferences(PREFS,MODE_PRIVATE)
         val existing=prefs.getString(KEY_ITEMS,"").orEmpty().split("\n---\n").filter{it.isNotBlank()}.toMutableList()
-        val source=if(title.isBlank())sbn.packageName else title
+        val app=try{packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName,0)).toString()}catch(_:Throwable){sbn.packageName}
+        val source=if(title.isBlank())app else "$app — $title"
         val entry=if(text.isBlank())"$source posted a notification." else "$source says: $text"
-        existing.remove(entry);existing.add(entry);while(existing.size>MAX_ITEMS)existing.removeAt(0)
+        existing.removeAll{it==entry};if(existing.lastOrNull()!=entry)existing.add(entry);while(existing.size>MAX_ITEMS)existing.removeAt(0)
         prefs.edit().putString(KEY_ITEMS,existing.joinToString("\n---\n")).apply()
         // Feed real notification events into the automation engine. Specific rules win naturally
         // because each event is independently looked up and protected by engine cooldown/safety.
