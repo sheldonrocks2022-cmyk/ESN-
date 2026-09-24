@@ -9,6 +9,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Handler
 import android.provider.Settings
 import android.app.SearchManager
 import java.text.SimpleDateFormat
@@ -113,22 +114,25 @@ object JarvisCommandEngine {
 
     private fun playOnSpotify(context:Context,original:String):String {
         val query=original.replaceFirst(Regex("(?i)^(play|put on)\\s+"),"").replaceFirst(Regex("(?i)\\s+on spotify$"),"").trim()
-        if(query.isBlank())return "Tell me what song to play on Spotify."
+        val playable=query.replaceFirst(Regex("(?i)^(song|track|album|artist|playlist)\\s+"),"").trim()
+        if(playable.isBlank())return "Tell me what song to play on Spotify."
+        val spotify="com.spotify.music"
+        // Spotify does not reliably honor MEDIA_PLAY_FROM_SEARCH from third-party apps.
+        // Use its search URI, then use Phone Access to select the best result and start playback.
         return try{
-            val playable=query.replaceFirst(Regex("(?i)^(song|track|album|artist|playlist)\\s+"),"").trim()
-            val playIntent=Intent("android.media.action.MEDIA_PLAY_FROM_SEARCH")
-                .setPackage("com.spotify.music")
-                .putExtra(SearchManager.QUERY,playable)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(playIntent)
-            JarvisContext.remember(context,"media","spotify")
-            JarvisContext.remember(context,"media_query",playable)
-            "Playing $playable on Spotify."
-        }catch(_:Exception){
-            try{
-                val intent=Intent(Intent.ACTION_VIEW,Uri.parse("spotify:search:${Uri.encode(query)}")).setPackage("com.spotify.music").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent);JarvisContext.remember(context,"media","spotify");"Spotify could not accept direct playback, so I opened the search results instead."
-            }catch(_:Exception){"I couldn't open Spotify."}
+            context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("spotify:search:${Uri.encode(playable)}")).setPackage(spotify).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            JarvisContext.remember(context,"media","spotify");JarvisContext.remember(context,"media_query",playable)
+            if(!JarvisAccessibilityService.isEnabled(context)) return "I opened $playable in Spotify. Enable Phone Access so I can select it and start playback."
+            Handler(context.mainLooper).postDelayed({
+                try{
+                    val clicked=JarvisAccessibilityService.clickText(playable) || JarvisScreenInspector.tapBestMatch(playable).startsWith("Tapped",true)
+                    if(clicked) Handler(context.mainLooper).postDelayed({mediaKey(context,android.view.KeyEvent.KEYCODE_MEDIA_PLAY,"")},700L)
+                }catch(t:Throwable){JarvisDiagnostics.recordFailure(context,"spotify_play",t.javaClass.simpleName+":"+t.message.orEmpty())}
+            },1400L)
+            "Opening $playable in Spotify and starting playback."
+        }catch(t:Throwable){
+            JarvisDiagnostics.recordFailure(context,"spotify_open",t.javaClass.simpleName+":"+t.message.orEmpty())
+            "I couldn't open Spotify."
         }
     }
     private fun displayName(target: String) = target.split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercaseChar() } }
