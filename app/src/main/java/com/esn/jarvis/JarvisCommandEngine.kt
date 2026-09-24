@@ -126,10 +126,10 @@ object JarvisCommandEngine {
             Handler(context.mainLooper).postDelayed({
                 try{
                     val clicked=JarvisAccessibilityService.clickText(playable) || JarvisScreenInspector.tapBestMatch(playable).startsWith("Tapped",true)
-                    if(clicked) Handler(context.mainLooper).postDelayed({mediaKey(context,android.view.KeyEvent.KEYCODE_MEDIA_PLAY,"")},700L)
+                    if(clicked) Handler(context.mainLooper).postDelayed({mediaKey(context,android.view.KeyEvent.KEYCODE_MEDIA_PLAY,"");Handler(context.mainLooper).postDelayed({val playing=(context.getSystemService(Context.AUDIO_SERVICE) as AudioManager).isMusicActive;if(playing)JarvisContext.remember(context,"spotify_verified","playing:$playable") else JarvisDiagnostics.recordFailure(context,"spotify_verify","Playback did not become active for $playable")},1800L)},700L) else JarvisDiagnostics.recordFailure(context,"spotify_play","Could not select a matching result for $playable")
                 }catch(t:Throwable){JarvisDiagnostics.recordFailure(context,"spotify_play",t.javaClass.simpleName+":"+t.message.orEmpty())}
             },1400L)
-            "Opening $playable in Spotify and starting playback."
+            "Opening $playable in Spotify. I will verify playback after selecting the result."
         }catch(t:Throwable){
             JarvisDiagnostics.recordFailure(context,"spotify_open",t.javaClass.simpleName+":"+t.message.orEmpty())
             "I couldn't open Spotify."
