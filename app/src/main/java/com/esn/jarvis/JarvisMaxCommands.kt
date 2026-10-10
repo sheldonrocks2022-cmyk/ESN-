@@ -21,6 +21,23 @@ object JarvisMaxCommands {
         val tasks = JarvisMaxTaskPlanner(context)
         val focus = JarvisMaxFocus(context)
         return when {
+            command == "max ai status" -> JarvisMaxAISettings.status(context)
+            command == "max conversation" -> JarvisMaxConversation(context).summary()
+            command == "max clear conversation confirm" -> {
+                if (JarvisMaxConversation(context).clear()) "Conversation history cleared." else "Could not clear history."
+            }
+            command == "max clear conversation" -> "Say max clear conversation confirm to delete local conversation history."
+            command.startsWith("max note conversation ") -> {
+                val note = original.drop("max note conversation ".length).trim()
+                if (JarvisMaxConversation(context).append("user", note)) "Conversation note saved locally." else "Note must be 1 to 2000 characters."
+            }
+            command == "max approvals" -> JarvisMaxApprovals(context).pending()
+            command.startsWith("max request approval ") ->
+                JarvisMaxApprovals(context).request(original.drop("max request approval ".length))
+            command.startsWith("max approve ") ->
+                JarvisMaxApprovals(context).decide(command.removePrefix("max approve "), true)
+            command.startsWith("max deny ") ->
+                JarvisMaxApprovals(context).decide(command.removePrefix("max deny "), false)
             command == "max briefing" || command == "max daily briefing" -> JarvisMaxBriefing.generate(context)
             command == "max focus status" -> focus.status()
             command == "max focus stop" -> focus.stop()
@@ -40,7 +57,7 @@ object JarvisMaxCommands {
                 if (number == null) "Specify a task number." else tasks.remove(number)
             }
             command == "max help" || command == "max commands" ->
-                "JARVIS MAX: status, diagnostics, battery, memories, memory stats, find memory followed by keywords, remember followed by text, forget followed by number, forget all confirm, tasks, task summary, add task, complete task remove task, focus start, focus status, focus stop, and briefing."
+                "JARVIS MAX: status, diagnostics, battery, memories, memory stats, find memory followed by keywords, remember followed by text, forget followed by number, forget all confirm, tasks, task summary, add task, complete task remove task, focus start, focus status, focus stop, briefing, ai status, conversation, note conversation, clear conversation, approvals, request approval, approve, and deny."
             command.startsWith("max remember ") -> {
                 val note = original.drop("max remember ".length).trim()
                 if (memory.remember(note)) "Memory saved locally." else "Unable to save memory. Limit 500 characters."
