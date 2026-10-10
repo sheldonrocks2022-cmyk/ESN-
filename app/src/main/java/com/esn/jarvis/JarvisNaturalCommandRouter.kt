@@ -11,6 +11,7 @@ object JarvisNaturalCommandRouter {
         if(depth>8)return "Routine stopped because it exceeded the safety limit."
         val text = canonicalize(normalize(JarvisIntelligenceCore.resolve(context,raw)))
         if (text.isBlank()) return "I didn't catch that."
+        JarvisMaxCommands.execute(context, text)?.let { return it }
         val alias=JarvisAliases.resolve(context,text)
         if(alias.isNotBlank()){if(!seen.add(text))return "Routine stopped because a loop was detected.";return executeSafe(context,alias,depth+1,seen)}
         JarvisPersonalMemory.learnCorrection(context,text)?.let{return it}
