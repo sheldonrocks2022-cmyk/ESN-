@@ -19,7 +19,14 @@ object JarvisMaxCommands {
         if (!command.startsWith("max ")) return null
         val memory = JarvisMaxMemory(context)
         val tasks = JarvisMaxTaskPlanner(context)
+        val focus = JarvisMaxFocus(context)
         return when {
+            command == "max focus status" -> focus.status()
+            command == "max focus stop" -> focus.stop()
+            command.startsWith("max focus start ") -> {
+                val minutes = command.removePrefix("max focus start ").trim().toIntOrNull()
+                if (minutes == null) "Specify focus minutes between 1 and 180." else focus.start(minutes)
+            }
             command == "max tasks" -> tasks.list()
             command == "max task summary" -> tasks.summary()
             command.startsWith("max add task ") -> tasks.add(original.drop("max add task ".length))
@@ -32,7 +39,7 @@ object JarvisMaxCommands {
                 if (number == null) "Specify a task number." else tasks.remove(number)
             }
             command == "max help" || command == "max commands" ->
-                "JARVIS MAX: status, diagnostics, battery, memories, memory stats, find memory followed by keywords, remember followed by text, forget followed by number, forget all confirm, tasks, task summary, add task, complete task and remove task."
+                "JARVIS MAX: status, diagnostics, battery, memories, memory stats, find memory followed by keywords, remember followed by text, forget followed by number, forget all confirm, tasks, task summary, add task, complete task remove task, focus start, focus status, and focus stop."
             command.startsWith("max remember ") -> {
                 val note = original.substringAfter(" ", "").substringAfter(" ", "").trim()
                 if (memory.remember(note)) "Memory saved locally." else "Unable to save memory. Limit 500 characters."
