@@ -23,6 +23,7 @@ object JarvisMaxCommands {
         JarvisMaxUtilities.execute(context, command, original)?.let { return it }
         JarvisMaxTextTools.execute(command, original)?.let { return it }
         JarvisMaxConversions.execute(command, original)?.let { return it }
+        JarvisMaxMath.execute(command, original)?.let { return it }
         return when {
             command == "max ai status" -> JarvisMaxAISettings.status(context)
             command == "max conversation" -> JarvisMaxConversation(context).summary()
@@ -60,7 +61,7 @@ object JarvisMaxCommands {
                 if (number == null) "Specify a task number." else tasks.remove(number)
             }
             command == "max help" || command == "max commands" ->
-                "JARVIS MAX: status, diagnostics, battery, memories, memory stats, find memory followed by keywords, remember followed by text, forget followed by number, forget all confirm, tasks, task summary, add task, complete task remove task, focus start, focus status, focus stop, briefing, ai status, conversation, note conversation, clear conversation, approvals, request approval, approve, deny, device, storage, network, volume, timezone, language, uptime, secure lock, accessibility, uuid, word count, reverse, uppercase, lowercase, sha256, and 40 additional offline text tools, and 40 offline unit conversions."
+                "JARVIS MAX: status, diagnostics, battery, memories, memory stats, find memory followed by keywords, remember followed by text, forget followed by number, forget all confirm, tasks, task summary, add task, complete task remove task, focus start, focus status, focus stop, briefing, ai status, conversation, note conversation, clear conversation, approvals, request approval, approve, deny, device, storage, network, volume, timezone, language, uptime, secure lock, accessibility, uuid, word count, reverse, uppercase, lowercase, sha256, and 40 additional offline text tools, 40 offline unit conversions, and 40 offline math tools."
             command.startsWith("max remember ") -> {
                 val note = original.drop("max remember ".length).trim()
                 if (memory.remember(note)) "Memory saved locally." else "Unable to save memory. Limit 500 characters."
