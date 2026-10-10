@@ -15,11 +15,11 @@ object JarvisMaxDeveloperTools {
         command.startsWith("max kebab case ") -> run(original.drop("max kebab case ".length)) { value -> value.trim().replace(Regex("([a-z0-9])([A-Z])"), "$1-$2").replace(Regex("[^A-Za-z0-9]+"), "-").trim('-').lowercase(java.util.Locale.ROOT) }
         command.startsWith("max camel case ") -> run(original.drop("max camel case ".length)) { value -> value.trim().split(Regex("[^A-Za-z0-9]+")).filter { it.isNotEmpty() }.mapIndexed { i, w -> if (i == 0) w.lowercase() else w.lowercase().replaceFirstChar { it.uppercase() } }.joinToString("") }
         command.startsWith("max pascal case ") -> run(original.drop("max pascal case ".length)) { value -> value.trim().split(Regex("[^A-Za-z0-9]+")).filter { it.isNotEmpty() }.joinToString("") { it.lowercase().replaceFirstChar { c -> c.uppercase() } } }
-        command.startsWith("max html escape ") -> run(original.drop("max html escape ".length)) { value -> value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\\\"", "&quot;") }
+        command.startsWith("max html escape ") -> run(original.drop("max html escape ".length)) { value -> value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(34.toChar().toString(), "&quot;") }
         command.startsWith("max json quote ") -> run(original.drop("max json quote ".length)) { value -> org.json.JSONObject.quote(value) }
         command.startsWith("max remove newlines ") -> run(original.drop("max remove newlines ".length)) { value -> value.replace(Regex("[\\r\\n]+"), " ") }
         command.startsWith("max tabs to spaces ") -> run(original.drop("max tabs to spaces ".length)) { value -> value.replace("\\t", "    ") }
-        command.startsWith("max remove emojis ") -> run(original.drop("max remove emojis ".length)) { value -> value.filter { it.code <= 0xFFFF && it.category != Char.OTHER_SYMBOL } }
+        command.startsWith("max remove emojis ") -> run(original.drop("max remove emojis ".length)) { value -> value.filter { it.category != CharCategory.OTHER_SYMBOL && !it.isSurrogate() } }
         command.startsWith("max mask email ") -> run(original.drop("max mask email ".length)) { value -> value.replace(Regex("(?i)([a-z0-9._%+-])[a-z0-9._%+-]*(@[a-z0-9.-]+\\.[a-z]{2,})"), "$1***$2") }
         command.startsWith("max mask digits ") -> run(original.drop("max mask digits ".length)) { value -> value.replace(Regex("\\d"), "*") }
         command.startsWith("max mask vowels ") -> run(original.drop("max mask vowels ".length)) { value -> value.replace(Regex("[AEIOUaeiou]"), "*") }
