@@ -17,7 +17,7 @@ object JarvisMaxTextTools {
     fun execute(command: String, original: String): String? = when {
             command.startsWith("max trim ") -> transform(original.drop("max trim ".length)) { value -> value.trim() }
             command.startsWith("max length ") -> transform(original.drop("max length ".length)) { value -> value.length.toString() }
-            command.startsWith("max characters ") -> transform(original.drop("max characters ".length)) { value -> value.codePointCount(0, value.length).toString() }
+            command.startsWith("max characters ") -> transform(original.drop("max characters ".length)) { value -> Character.codePointCount(value, 0, value.length).toString() }
             command.startsWith("max lines ") -> transform(original.drop("max lines ".length)) { value -> value.lines().size.toString() }
             command.startsWith("max sentences ") -> transform(original.drop("max sentences ".length)) { value -> value.split(Regex("[.!?]+" )).count { it.isNotBlank() }.toString() }
             command.startsWith("max paragraphs ") -> transform(original.drop("max paragraphs ".length)) { value -> value.split(Regex("\\n\\s*\\n")).count { it.isNotBlank() }.toString() }
