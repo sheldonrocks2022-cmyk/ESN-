@@ -18,9 +18,21 @@ object JarvisMaxCommands {
         val command = original.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ").trim()
         if (!command.startsWith("max ")) return null
         val memory = JarvisMaxMemory(context)
+        val tasks = JarvisMaxTaskPlanner(context)
         return when {
+            command == "max tasks" -> tasks.list()
+            command == "max task summary" -> tasks.summary()
+            command.startsWith("max add task ") -> tasks.add(original.drop("max add task ".length))
+            command.startsWith("max complete task ") -> {
+                val number = command.removePrefix("max complete task ").trim().toIntOrNull()
+                if (number == null) "Specify a task number." else tasks.complete(number)
+            }
+            command.startsWith("max remove task ") -> {
+                val number = command.removePrefix("max remove task ").trim().toIntOrNull()
+                if (number == null) "Specify a task number." else tasks.remove(number)
+            }
             command == "max help" || command == "max commands" ->
-                "JARVIS MAX: status, diagnostics, battery, memories, memory stats, find memory followed by keywords, remember followed by text, forget followed by number, and forget all confirm."
+                "JARVIS MAX: status, diagnostics, battery, memories, memory stats, find memory followed by keywords, remember followed by text, forget followed by number, forget all confirm, tasks, task summary, add task, complete task and remove task."
             command.startsWith("max remember ") -> {
                 val note = original.substringAfter(" ", "").substringAfter(" ", "").trim()
                 if (memory.remember(note)) "Memory saved locally." else "Unable to save memory. Limit 500 characters."
