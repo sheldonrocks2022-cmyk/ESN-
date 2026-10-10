@@ -24,6 +24,8 @@ object JarvisMaxCommands {
         JarvisMaxTextTools.execute(command, original)?.let { return it }
         JarvisMaxConversions.execute(command, original)?.let { return it }
         JarvisMaxMath.execute(command, original)?.let { return it }
+        JarvisMaxPairMath.execute(command, original)?.let { return it }
+        JarvisMaxDeveloperTools.execute(command, original)?.let { return it }
         return when {
             command == "max ai status" -> JarvisMaxAISettings.status(context)
             command == "max conversation" -> JarvisMaxConversation(context).summary()
