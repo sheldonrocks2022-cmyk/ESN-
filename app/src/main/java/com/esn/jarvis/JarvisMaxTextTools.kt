@@ -33,10 +33,10 @@ object JarvisMaxTextTools {
             command.startsWith("max only numbers ") -> transform(original.drop("max only numbers ".length)) { value -> value.filter { it.isDigit() || it == '.' || it == '-' } }
             command.startsWith("max sort words ") -> transform(original.drop("max sort words ".length)) { value -> value.split(Regex("\\s+")).sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(" ") }
             command.startsWith("max unique words ") -> transform(original.drop("max unique words ".length)) { value -> value.split(Regex("\\s+")).distinctBy { it.lowercase(locale) }.joinToString(" ") }
-            command.startsWith("max sort lines ") -> transform(original.drop("max sort lines ".length)) { value -> value.lines().sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString("\\n") }
-            command.startsWith("max unique lines ") -> transform(original.drop("max unique lines ".length)) { value -> value.lines().distinct().joinToString("\\n") }
+            command.startsWith("max sort lines ") -> transform(original.drop("max sort lines ".length)) { value -> value.lines().sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString("\n") }
+            command.startsWith("max unique lines ") -> transform(original.drop("max unique lines ".length)) { value -> value.lines().distinct().joinToString("\n") }
             command.startsWith("max reverse words ") -> transform(original.drop("max reverse words ".length)) { value -> value.split(Regex("\\s+")).reversed().joinToString(" ") }
-            command.startsWith("max reverse lines ") -> transform(original.drop("max reverse lines ".length)) { value -> value.lines().reversed().joinToString("\\n") }
+            command.startsWith("max reverse lines ") -> transform(original.drop("max reverse lines ".length)) { value -> value.lines().reversed().joinToString("\n") }
             command.startsWith("max first word ") -> transform(original.drop("max first word ".length)) { value -> value.trim().split(Regex("\\s+")).firstOrNull().orEmpty() }
             command.startsWith("max last word ") -> transform(original.drop("max last word ".length)) { value -> value.trim().split(Regex("\\s+")).lastOrNull().orEmpty() }
             command.startsWith("max first line ") -> transform(original.drop("max first line ".length)) { value -> value.lines().firstOrNull().orEmpty() }
