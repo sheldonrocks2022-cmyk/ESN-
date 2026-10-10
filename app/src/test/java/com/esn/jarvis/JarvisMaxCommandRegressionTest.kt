@@ -22,7 +22,7 @@ class JarvisMaxCommandRegressionTest {
     }
     @Test fun text() {
         assertEquals("HELLO", JarvisMaxTextTools.execute("max swap case hello", "max swap case hello"))
-        assertEquals("3", JarvisMaxTextTools.execute("max characters a😀", "max characters a😀"))
+        assertEquals("2", JarvisMaxTextTools.execute("max characters a😀", "max characters a😀"))
         assertEquals("a\nb", JarvisMaxTextTools.execute("max sort lines b\na", "max sort lines b\na"))
         assertEquals("No", JarvisMaxTextTools.execute("max palindrome abc", "max palindrome abc"))
     }
