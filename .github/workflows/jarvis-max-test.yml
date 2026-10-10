@@ -29,6 +29,8 @@ jobs:
           rm -rf "$GITHUB_WORKSPACE/app/src/main/cpp/llama.cpp"
           git clone --no-checkout https://github.com/ggml-org/llama.cpp.git "$GITHUB_WORKSPACE/app/src/main/cpp/llama.cpp"
           git -C "$GITHUB_WORKSPACE/app/src/main/cpp/llama.cpp" checkout 60081bb2b5b3294165a4d67c5cbeebe74c868014
+      - name: Run JARVIS MAX regression tests
+        run: gradle :app:testDebugUnitTest --no-build-cache
       - name: Build debug APK
         run: gradle assembleDebug --no-build-cache
       - name: Upload test APK
