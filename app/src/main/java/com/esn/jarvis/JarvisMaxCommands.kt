@@ -35,7 +35,7 @@ object JarvisMaxCommands {
                 "Memory core: ${items.size} of 100 notes used. ${items.sumOf { it.length }} characters stored on this device."
             }
             command.startsWith("max find memory ") -> {
-                val query = original.substringAfter("find memory ", "").trim()
+                val query = original.drop("max find memory ".length).trim()
                 if (query.isBlank()) "Tell me what to search for."
                 else {
                     val matches = memory.list().mapIndexedNotNull { index, note ->
